@@ -205,7 +205,7 @@ export function getPageMarginMm() {
 
 function stripEditChrome(node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return node;
-  node.querySelectorAll('.resume-edit-btn, .resume-photo-resize').forEach(button => button.remove());
+  node.querySelectorAll('.resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls, .resume-format-menu').forEach(button => button.remove());
   node.querySelectorAll('[contenteditable]').forEach(element => element.removeAttribute('contenteditable'));
   return node;
 }
@@ -233,17 +233,27 @@ function cloneResumeNodes(app) {
 /**
  * 创建一行分页单位的外壳。
  */
-function createRow(type, child) {
+function moduleScaleStyle(node) {
+  const inline = String(node.getAttribute?.('style') || '');
+  const fromInline = inline.match(/--resume-module-scale:\s*([\d.]+)/);
+  const raw = fromInline?.[1] || getComputedStyle(node).getPropertyValue('--resume-module-scale').trim();
+  const scale = parseFloat(raw);
+  if (!Number.isFinite(scale) || Math.abs(scale - 1) < 0.001) return '';
+  return `--resume-module-scale: ${scale}`;
+}
+
+function createRow(type, child, scaleStyle = '') {
   const wrapper = document.createElement('div');
   wrapper.className = `page-separator-row page-separator-row-${type}`;
+  if (scaleStyle) wrapper.style.cssText = scaleStyle;
   wrapper.appendChild(child);
   return wrapper;
 }
 
-function createProjectSeparatorRow() {
+function createProjectSeparatorRow(scaleStyle = '') {
   const separator = document.createElement('div');
   separator.className = 'page-separator-project-separator';
-  const row = createRow('project-separator', separator);
+  const row = createRow('project-separator', separator, scaleStyle);
   row.dataset.keepWithNext = '1';
   return row;
 }
@@ -251,14 +261,14 @@ function createProjectSeparatorRow() {
 /**
  * 把一条 bullet 包装成独立行，保留 list-style 与缩进。
  */
-function makeBulletRow(li) {
+function makeBulletRow(li, scaleStyle = '') {
   const ul = document.createElement('ul');
   ul.style.listStyleType = 'disc';
   ul.style.listStylePosition = 'outside';
   ul.style.paddingLeft = '20px';
   ul.style.margin = '0';
   ul.appendChild(li.cloneNode(true));
-  return createRow('bullet', ul);
+  return createRow('bullet', ul, scaleStyle);
 }
 
 /**
@@ -266,7 +276,7 @@ function makeBulletRow(li) {
  * - 头部（公司/岗位/日期、项目背景/技术栈/职责、分隔线）作为一行
  * - 每条 summary bullet 作为独立行
  */
-function extractEntryRows(entryNode) {
+function extractEntryRows(entryNode, scaleStyle = '') {
   const rows = [];
   const isProject = entryNode.classList.contains('resume-project-entry');
 
@@ -284,12 +294,12 @@ function extractEntryRows(entryNode) {
   const divider = entryNode.querySelector(':scope > .resume-project-divider');
   if (divider) headerRowContent.appendChild(divider.cloneNode(true));
 
-  rows.push(createRow(isProject ? 'project-header' : 'entry-header', headerRowContent));
+  rows.push(createRow(isProject ? 'project-header' : 'entry-header', headerRowContent, scaleStyle));
 
   const summary = entryNode.querySelector(':scope > .resume-entry-summary');
   if (summary) {
     summary.querySelectorAll(':scope > ul > li').forEach(li => {
-      rows.push(makeBulletRow(li));
+      rows.push(makeBulletRow(li, scaleStyle));
     });
   }
 
@@ -302,8 +312,9 @@ function extractEntryRows(entryNode) {
 function extractSectionRows(sectionNode) {
   const rows = [];
   let hasProjectEntry = false;
+  const scaleStyle = moduleScaleStyle(sectionNode);
   const title = sectionNode.querySelector(':scope > .resume-section-title');
-  if (title) rows.push(createRow('section-title', title.cloneNode(true)));
+  if (title) rows.push(createRow('section-title', title.cloneNode(true), scaleStyle));
 
   const content = sectionNode.querySelector(':scope > .resume-section-content');
   if (!content) return rows;
@@ -312,14 +323,14 @@ function extractSectionRows(sectionNode) {
     if (child.classList.contains('resume-edit-btn')) return;
     if (child.classList.contains('resume-entry')) {
       if (child.classList.contains('resume-project-entry')) {
-        if (hasProjectEntry) rows.push(createProjectSeparatorRow());
+        if (hasProjectEntry) rows.push(createProjectSeparatorRow(scaleStyle));
         hasProjectEntry = true;
       }
-      rows.push(...extractEntryRows(child));
+      rows.push(...extractEntryRows(child, scaleStyle));
     } else if (child.classList.contains('resume-summary-content')) {
       const ul = child.querySelector(':scope > ul');
       if (ul) {
-        Array.from(ul.children).forEach(li => rows.push(makeBulletRow(li)));
+        Array.from(ul.children).forEach(li => rows.push(makeBulletRow(li, scaleStyle)));
       }
     } else if (
       child.classList.contains('resume-basic-info') ||
@@ -327,9 +338,9 @@ function extractSectionRows(sectionNode) {
     ) {
       // 基本信息块保持原有网格布局，每个技能项作为一行
       const type = child.classList.contains('resume-basic-info') ? 'basic-info' : 'skill-item';
-      rows.push(createRow(type, child.cloneNode(true)));
+      rows.push(createRow(type, child.cloneNode(true), scaleStyle));
     } else {
-      rows.push(createRow('other', child.cloneNode(true)));
+      rows.push(createRow('other', child.cloneNode(true), scaleStyle));
     }
   });
 

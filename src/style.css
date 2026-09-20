@@ -67,6 +67,12 @@ body {
 }
 
 /* ===== Header：姓名置顶，基本信息与教育背景整合，证件照贴右上角 ===== */
+.resume-header,
+.resume-section,
+.page-separator-row {
+  --resume-module-scale: 1;
+  font-size: calc(var(--text-font-size) * var(--resume-module-scale, 1));
+}
 .resume-header {
   position: relative;
   margin-bottom: var(--resume-header-gap);
@@ -78,8 +84,14 @@ html.resume-show-photo .resume-header {
   padding-right: calc(var(--resume-photo-width) + 8px);
 }
 .resume-header-body { min-width: 0; }
+.resume-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.resume-name-row .resume-name { flex: 1; min-width: 0; }
 .resume-name {
-  font-size: 22px;
+  font-size: calc(22px * var(--resume-module-scale, 1));
   font-weight: 700;
   color: var(--theme-header-name-color);
   letter-spacing: -0.5px;
@@ -135,7 +147,7 @@ html.resume-show-photo .resume-photo { display: block; }
   place-items: center;
   padding: 6px;
   color: var(--theme-text-soft);
-  font-size: 11px;
+  font-size: calc(11px * var(--resume-module-scale, 1));
   font-weight: 600;
   letter-spacing: 0.04em;
   text-align: center;
@@ -183,7 +195,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: calc(14px * var(--resume-module-scale, 1));
   font-weight: 700;
   letter-spacing: var(--theme-section-title-letter-spacing);
   color: var(--theme-section-title-text);
@@ -199,19 +211,35 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   flex-shrink: 0;
   color: var(--theme-section-icon-color);
 }
+.resume-section-title-text { min-width: 0; }
+.resume-font-scale-controls {
+  display: none;
+  margin-left: auto;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+html.resume-preview-edit-mode .resume-font-scale-controls { display: inline-flex; }
+.resume-font-scale-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
 
 /* ===== Basic Info ===== */
 .resume-basic-info {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--resume-basic-info-gap) 32px;
-  font-size: 14px;
+  font-size: calc(14px * var(--resume-module-scale, 1));
 }
 .resume-basic-info-item {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--resume-module-scale, 1));
   line-height: 1.35;
 }
 .resume-basic-info-label {
@@ -234,7 +262,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   margin-bottom: var(--resume-entry-header-gap);
 }
 .resume-entry-title {
-  font-size: 15.5px;
+  font-size: calc(15.5px * var(--resume-module-scale, 1));
   font-weight: 600;
   color: var(--theme-entry-title-color);
   margin-bottom: 2px;
@@ -245,14 +273,14 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   opacity: 0.65;
 }
 .resume-entry-organization {
-  font-size: 14px;
+  font-size: calc(14px * var(--resume-module-scale, 1));
   font-weight: 400;
   color: var(--theme-text-soft);
 }
 .resume-entry-date {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: calc(13px * var(--resume-module-scale, 1));
   color: var(--theme-text-soft);
   white-space: nowrap;
 }
@@ -280,7 +308,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 .resume-entry-summary li::marker { color: var(--theme-marker-color); }
 .resume-summary-content p,
 .resume-entry-summary p {
-  font-size: 14.5px;
+  font-size: calc(14.5px * var(--resume-module-scale, 1));
   margin-bottom: 0;
 }
 
@@ -309,7 +337,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 /* ===== Keywords line（项目关键字等）===== */
 .resume-labeled-list {
   margin-top: var(--resume-keyword-gap);
-  font-size: 13px;
+  font-size: calc(13px * var(--resume-module-scale, 1));
   color: var(--theme-text-soft);
 }
 
@@ -322,7 +350,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-size: 14px;
+  font-size: calc(14px * var(--resume-module-scale, 1));
   line-height: var(--resume-line-height);
 }
 .resume-project-meta-label {
@@ -401,7 +429,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   line-height: 1.45;
 }
 .resume-skill-keywords {
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--resume-module-scale, 1));
   color: var(--theme-text-soft);
   line-height: 1.45;
   min-width: 0;
@@ -417,7 +445,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   display: inline-block;
   margin-right: 5px;
   color: var(--theme-accent);
-  font-size: 11px;
+  font-size: calc(11px * var(--resume-module-scale, 1));
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -440,14 +468,14 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 }
 .resume-language-item:last-child { margin-bottom: 0; }
 .resume-language-name { font-weight: 600; color: var(--theme-text); }
-.resume-language-fluency { font-size: 13px; color: var(--theme-text-soft); }
+.resume-language-fluency { font-size: calc(13px * var(--resume-module-scale, 1)); color: var(--theme-text-soft); }
 
 /* ===== Footer ===== */
 .resume-footer {
   margin-top: var(--resume-footer-gap);
   padding-top: 16px;
   border-top: 1px solid var(--theme-border);
-  font-size: 12px;
+  font-size: calc(12px * var(--resume-module-scale, 1));
   color: var(--theme-text-soft);
   text-align: center;
 }
@@ -719,7 +747,7 @@ html.resume-compact-mode .page-separator-row-bullet ul {
 
 .page-separator-row-bullet li {
   line-height: var(--resume-line-height);
-  font-size: 14.5px;
+  font-size: calc(14.5px * var(--resume-module-scale, 1));
   margin-bottom: 0;
 }
 
@@ -804,6 +832,8 @@ html.resume-preview-edit-mode .resume-edit-text {
   border-radius: 2px;
   outline: 1px dashed transparent;
   outline-offset: 1px;
+  user-select: text;
+  -webkit-user-select: text;
 }
 html.resume-preview-edit-mode .resume-edit-text:hover,
 html.resume-preview-edit-mode .resume-edit-text:focus {
@@ -811,8 +841,33 @@ html.resume-preview-edit-mode .resume-edit-text:focus {
   outline-color: #93c5fd;
 }
 html.resume-photo-resizing, html.resume-photo-resizing * { cursor: nwse-resize !important; user-select: none !important; }
+.resume-format-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid #d6d3d1;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(41, 37, 36, 0.16);
+  display: grid;
+  gap: 2px;
+}
+.resume-format-menu[hidden] { display: none; }
+.resume-format-menu button {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #44403c;
+  font: 600 12px var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.resume-format-menu button:hover { background: #f5f5f4; }
 @media print {
-  .resume-edit-btn, .resume-photo-resize { display: none !important; }
+  .resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls, .resume-format-menu { display: none !important; }
   .resume-edit-text { outline: none !important; background: transparent !important; }
   .resume-photo:not(:has(img)) { display: none !important; }
   html.resume-show-photo .resume-header:not(:has(.resume-photo-image)) {

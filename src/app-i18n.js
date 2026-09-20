@@ -12,6 +12,7 @@ const resources = {
     'profile.institution': '院校', 'profile.degree': '学历', 'profile.date': '时间',
     'photo.placeholder': '上传证件照', 'photo.change': '更换照片', 'photo.remove': '移除照片', 'photo.resize': '拖动右下角调整照片大小',
     'edit.remove': '删除', 'edit.addBullet': '添加一条', 'edit.addBasic': '添加信息', 'edit.addEducation': '添加教育经历', 'edit.addWork': '添加工作经历', 'edit.addProject': '添加项目经历', 'edit.addSkill': '添加技能',
+    'format.bold': '加粗', 'format.sizeUp': '加大字号', 'format.sizeDown': '减小字号',
   } },
   'en-US': { translation: {
     'app.name': 'Resume Editor', 'app.edit': 'Edit', 'app.theme': 'Theme', 'app.language': 'Language', 'app.pageSeparators': 'Page breaks', 'app.compactMode': 'Compact', 'app.smartLayout': 'Smart layout', 'app.showPhoto': 'Photo', 'app.editMode': 'Edit mode', 'app.spacing': 'Layout', 'app.reset': 'Reset', 'app.export': 'Export', 'app.hide': 'Hide', 'app.show': 'Show',
@@ -24,6 +25,7 @@ const resources = {
     'profile.institution': 'School', 'profile.degree': 'Degree', 'profile.date': 'Dates',
     'photo.placeholder': 'Upload photo', 'photo.change': 'Change photo', 'photo.remove': 'Remove photo', 'photo.resize': 'Drag the corner to resize the photo',
     'edit.remove': 'Remove', 'edit.addBullet': 'Add bullet', 'edit.addBasic': 'Add detail', 'edit.addEducation': 'Add education', 'edit.addWork': 'Add experience', 'edit.addProject': 'Add project', 'edit.addSkill': 'Add skill',
+    'format.bold': 'Bold', 'format.sizeUp': 'Larger text', 'format.sizeDown': 'Smaller text',
   } },
 };
 

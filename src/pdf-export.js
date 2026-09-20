@@ -98,7 +98,7 @@ export async function exportResumePdf({ fileName = 'resume' } = {}) {
         clone.style.height = `${height}px`;
         clone.style.overflow = 'hidden';
         clone.querySelectorAll('.page-separator-page-number').forEach(node => node.remove());
-        clone.querySelectorAll('.resume-edit-btn, .resume-photo-resize').forEach(node => node.remove());
+        clone.querySelectorAll('.resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls').forEach(node => node.remove());
         root.appendChild(clone);
       });
       try {

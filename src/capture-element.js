@@ -55,7 +55,7 @@ export async function captureElement(element, { scale = 2, backgroundColor = '#f
       // Split-mode #app rules add a large left margin; keep them off the clone.
       // Do not strip page-separator-mode — PDF pages rely on those layout rules.
       doc.documentElement.classList.remove('resume-editor-split-mode', 'resume-editor-toolbar-visible', 'resume-preview-edit-mode');
-      cloned.querySelectorAll('.resume-edit-btn, .resume-photo-resize').forEach(node => node.remove());
+      cloned.querySelectorAll('.resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls, .resume-format-menu').forEach(node => node.remove());
       cloned.querySelectorAll('[contenteditable]').forEach(node => node.removeAttribute('contenteditable'));
       cloned.style.transform = 'none';
       cloned.style.position = 'absolute';

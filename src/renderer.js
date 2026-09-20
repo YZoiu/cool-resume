@@ -1,4 +1,5 @@
 import { t } from './app-i18n.js';
+import { getModuleScale, renderInlineMarkup } from './text-markup.js';
 
 /*
  * renderer.js — 将版本 JSON 渲染为简历 HTML
@@ -66,21 +67,23 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
-function renderInlineMarkdown(text) {
-  if (text == null) return '';
-  let html = escapeHtml(String(text));
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  html = html.replace(/==(.+?)==/g, '<mark>$1</mark>');
-  return html;
-}
-
 function editable(path, value, kind = 'text') {
-  const rendered = kind === 'markdown' && !ctx.editMode
-    ? renderInlineMarkdown(value)
-    : escapeHtml(value ?? '');
+  const rendered = renderInlineMarkup(value);
   const ce = ctx.editMode ? ' contenteditable="true" spellcheck="false"' : '';
   return `<span class="resume-edit-text"${ce} data-edit-path="${escapeHtml(path)}" data-edit-kind="${kind}">${rendered}</span>`;
+}
+
+function scaleControls(sectionKey) {
+  if (!ctx.editMode) return '';
+  return `<span class="resume-font-scale-controls" data-section-key="${escapeHtml(sectionKey)}">
+    <button type="button" class="resume-edit-btn resume-font-scale-btn" data-edit-action="module-scale" data-scale-delta="-1" data-section-key="${escapeHtml(sectionKey)}" title="${escapeHtml(t(ctx.locale, 'format.sizeDown'))}">−</button>
+    <button type="button" class="resume-edit-btn resume-font-scale-btn" data-edit-action="module-scale" data-scale-delta="1" data-section-key="${escapeHtml(sectionKey)}" title="${escapeHtml(t(ctx.locale, 'format.sizeUp'))}">+</button>
+  </span>`;
+}
+
+function moduleStyle(data, key) {
+  const scale = getModuleScale(data, key);
+  return `--resume-module-scale: ${scale}`;
 }
 
 function addBtn(path, label) {
@@ -98,7 +101,7 @@ function renderBullets(items, pathPrefix) {
   if (list.length === 0 && !ctx.editMode) return '';
   const lis = list.map((item, index) => {
     const path = `${pathPrefix}.${index}`;
-    const body = ctx.editMode ? escapeHtml(item ?? '') : renderInlineMarkdown(item);
+    const body = renderInlineMarkup(item);
     const ce = ctx.editMode ? ' contenteditable="true" spellcheck="false"' : '';
     return `<li data-edit-item="${escapeHtml(path)}"><p class="resume-edit-text"${ce} data-edit-path="${escapeHtml(path)}" data-edit-kind="markdown">${body}</p>${removeBtn(path)}</li>`;
   }).join('');
@@ -168,20 +171,23 @@ function renderProfile(data) {
 export function renderHeader(data) {
   const photo = getPhotoSize(data);
   return `
-    <header class="resume-header" style="--resume-photo-width:${photo.width}mm;--resume-photo-height:${photo.height}mm">
+    <header class="resume-header" data-section-key="header" style="--resume-photo-width:${photo.width}mm;--resume-photo-height:${photo.height}mm;${moduleStyle(data, 'header')}">
       ${renderPhoto(data)}
       <div class="resume-header-body">
-        <h1 class="resume-name">${editable('name', data.name)}</h1>
+        <div class="resume-name-row">
+          <h1 class="resume-name">${editable('name', data.name)}</h1>
+          ${scaleControls('header')}
+        </div>
         ${renderProfile(data)}
       </div>
     </header>
   `;
 }
 
-function renderSection(title, iconName, content, sectionKey) {
+function renderSection(title, iconName, content, sectionKey, data) {
   return `
-    <section class="resume-section" data-section-key="${escapeHtml(sectionKey)}">
-      <h2 class="resume-section-title"><i class="resume-section-icon">${icon(iconName)}</i>${escapeHtml(title)}</h2>
+    <section class="resume-section" data-section-key="${escapeHtml(sectionKey)}" style="${moduleStyle(data, sectionKey)}">
+      <h2 class="resume-section-title"><i class="resume-section-icon">${icon(iconName)}</i><span class="resume-section-title-text">${escapeHtml(title)}</span>${scaleControls(sectionKey)}</h2>
       <div class="resume-section-content">${content}</div>
     </section>
   `;
@@ -275,10 +281,10 @@ function renderSkillKeywords(keywords) {
     .filter(Boolean)
     .map(part => {
       const separator = part.indexOf(':');
-      if (separator < 0) return `<span class="resume-skill-group">${escapeHtml(part)}</span>`;
+      if (separator < 0) return `<span class="resume-skill-group">${renderInlineMarkup(part)}</span>`;
       const level = part.slice(0, separator).trim();
       const values = part.slice(separator + 1).trim();
-      return `<span class="resume-skill-group"><span class="resume-skill-level">${escapeHtml(level)}</span><span class="resume-skill-values">${escapeHtml(values)}</span></span>`;
+      return `<span class="resume-skill-group"><span class="resume-skill-level">${renderInlineMarkup(level)}</span><span class="resume-skill-values">${renderInlineMarkup(values)}</span></span>`;
     });
 
   return groups.join('') || '<span class="resume-skill-group">—</span>';
@@ -318,6 +324,6 @@ export function renderResume(data, { locale = 'zh-CN', editMode = false } = {}) 
     if (INTEGRATED_SECTIONS.has(key)) return '';
     const section = SECTIONS[key];
     if (!section) return '';
-    return renderSection(t(locale, `section.${section.key}`), section.icon, section.render(data[key]), section.key);
+    return renderSection(t(locale, `section.${section.key}`), section.icon, section.render(data[key]), section.key, data);
   }).join('');
 }

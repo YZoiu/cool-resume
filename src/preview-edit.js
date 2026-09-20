@@ -12,6 +12,14 @@ import {
   PHOTO_WIDTH_MAX_MM,
   PHOTO_WIDTH_MIN_MM,
 } from './renderer.js';
+import {
+  bumpModuleScale,
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+  getModuleScale,
+  serializeMarkup,
+} from './text-markup.js';
+import { t } from './app-i18n.js';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -135,7 +143,20 @@ function firstEditablePath(collectionPath, index) {
 }
 
 function readEditableText(element) {
-  return (element.innerText || element.textContent || '').replace(/\u00a0/g, ' ').replace(/\n+$/g, '');
+  return serializeMarkup(element);
+}
+
+function fieldFromRange(range) {
+  const node = range.commonAncestorContainer;
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  return element?.closest?.('[data-edit-path]') || null;
+}
+
+function restoreRange(range) {
+  const selection = window.getSelection();
+  if (!selection || !range) return;
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 function loadImage(file) {
@@ -197,6 +218,16 @@ export function initPreviewEdit({ getData, applyData, onSave, getLocale = () => 
   let composing = false;
   let saveTimer = null;
   let photoResize = null;
+  let savedRange = null;
+  const formatMenu = document.createElement('div');
+  formatMenu.className = 'resume-format-menu';
+  formatMenu.hidden = true;
+  formatMenu.innerHTML = `
+    <button type="button" data-format="bold">${t(getLocale(), 'format.bold')}</button>
+    <button type="button" data-format="size-up">${t(getLocale(), 'format.sizeUp')}</button>
+    <button type="button" data-format="size-down">${t(getLocale(), 'format.sizeDown')}</button>
+  `;
+  document.body.appendChild(formatMenu);
 
   function currentData() {
     return clone(getData());
@@ -220,6 +251,96 @@ export function initPreviewEdit({ getData, applyData, onSave, getLocale = () => 
     setAt(data, path, value);
     applyData(data, { rerender: false });
     scheduleSave(data);
+  }
+
+  function commitField(field) {
+    if (!field?.dataset.editPath) return;
+    commitText(field.dataset.editPath, readEditableText(field));
+  }
+
+  function hideFormatMenu() {
+    formatMenu.hidden = true;
+    savedRange = null;
+  }
+
+  function showFormatMenu(event) {
+    formatMenu.hidden = false;
+    const pad = 8;
+    const width = formatMenu.offsetWidth || 140;
+    const height = formatMenu.offsetHeight || 110;
+    const left = Math.min(event.clientX, window.innerWidth - width - pad);
+    const top = Math.min(event.clientY, window.innerHeight - height - pad);
+    formatMenu.style.left = `${Math.max(pad, left)}px`;
+    formatMenu.style.top = `${Math.max(pad, top)}px`;
+  }
+
+  function selectionRange() {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount || selection.isCollapsed) return null;
+    return selection.getRangeAt(0);
+  }
+
+  function toggleSelectionBold() {
+    const range = savedRange || selectionRange();
+    if (!range) return;
+    const field = fieldFromRange(range);
+    if (!field || !app.contains(field)) return;
+    restoreRange(range);
+    field.focus();
+    document.execCommand('bold');
+    commitField(field);
+  }
+
+  function currentModuleScaleFor(element) {
+    const host = element.closest('[data-section-key]');
+    const raw = host ? getComputedStyle(host).getPropertyValue('--resume-module-scale') : '1';
+    const scale = parseFloat(raw);
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  }
+
+  function adjustSelectionFontSize(delta) {
+    const range = savedRange || selectionRange();
+    if (!range) return;
+    const field = fieldFromRange(range);
+    if (!field || !app.contains(field)) return;
+    restoreRange(range.cloneRange());
+    const scale = currentModuleScaleFor(field);
+    const startEl = range.startContainer.nodeType === Node.ELEMENT_NODE
+      ? range.startContainer
+      : range.startContainer.parentElement;
+    const existing = startEl?.closest?.('[data-fs]');
+    const coversExisting = existing && field.contains(existing)
+      && range.toString() === existing.textContent;
+    let next;
+    if (coversExisting) {
+      next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(Number(existing.getAttribute('data-fs')) + delta)));
+      existing.setAttribute('data-fs', String(next));
+      existing.style.fontSize = `calc(${next}px * var(--resume-module-scale, 1))`;
+    } else {
+      const computed = parseFloat(getComputedStyle(startEl).fontSize) || 14;
+      next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, Math.round(computed / scale + delta)));
+      const span = document.createElement('span');
+      span.dataset.fs = String(next);
+      span.style.fontSize = `calc(${next}px * var(--resume-module-scale, 1))`;
+      try {
+        range.surroundContents(span);
+      } catch {
+        span.appendChild(range.extractContents());
+        range.insertNode(span);
+      }
+    }
+    commitField(field);
+  }
+
+  function applyModuleScale(sectionKey, deltaSteps) {
+    if (!sectionKey) return;
+    const data = currentData();
+    if (!data.style) data.style = {};
+    if (!data.style.fontScale || typeof data.style.fontScale !== 'object') data.style.fontScale = {};
+    const next = bumpModuleScale(getModuleScale(data, sectionKey), deltaSteps);
+    if (Math.abs(next - 1) < 0.001) delete data.style.fontScale[sectionKey];
+    else data.style.fontScale[sectionKey] = next;
+    commit(data, { rerender: true });
   }
 
   async function assignPhoto(file) {
@@ -247,12 +368,19 @@ export function initPreviewEdit({ getData, applyData, onSave, getLocale = () => 
   }
 
   function handleKeydown(event) {
+    if (event.key === 'Escape') hideFormatMenu();
     const field = event.target.closest?.('[data-edit-path]');
     if (!field || !document.documentElement.classList.contains('resume-preview-edit-mode')) return;
     if (event.key === 'Enter') {
       event.preventDefault();
       field.blur();
     }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'b') {
+      event.preventDefault();
+      savedRange = selectionRange()?.cloneRange() || savedRange;
+      toggleSelectionBold();
+    }
+    if (event.key === 'Escape') hideFormatMenu();
   }
 
   function pxToMm(px) {
@@ -326,7 +454,32 @@ export function initPreviewEdit({ getData, applyData, onSave, getLocale = () => 
     startPhotoResize(event);
   }
 
+  function handleContextMenu(event) {
+    if (!document.documentElement.classList.contains('resume-preview-edit-mode')) return;
+    const field = event.target.closest?.('[data-edit-path]');
+    if (!field || !app.contains(field)) return;
+    const range = selectionRange();
+    if (!range || !range.toString().trim()) return;
+    const ancestor = range.commonAncestorContainer;
+    if (ancestor !== field && !field.contains(ancestor)) return;
+    event.preventDefault();
+    savedRange = range.cloneRange();
+    showFormatMenu(event);
+  }
+
+  function handleFormatMenuClick(event) {
+    const button = event.target.closest?.('[data-format]');
+    if (!button) return;
+    event.preventDefault();
+    const action = button.dataset.format;
+    if (action === 'bold') toggleSelectionBold();
+    else if (action === 'size-up') adjustSelectionFontSize(1);
+    else if (action === 'size-down') adjustSelectionFontSize(-1);
+    hideFormatMenu();
+  }
+
   function handleClick(event) {
+    if (!formatMenu.hidden && !formatMenu.contains(event.target)) hideFormatMenu();
     if (event.target.closest?.('[data-edit-action="resize-photo"]')) {
       event.preventDefault();
       event.stopPropagation();
@@ -350,6 +503,13 @@ export function initPreviewEdit({ getData, applyData, onSave, getLocale = () => 
     }
 
     if (!document.documentElement.classList.contains('resume-preview-edit-mode')) return;
+
+    const scaleBtn = event.target.closest?.('[data-edit-action="module-scale"]');
+    if (scaleBtn && app.contains(scaleBtn)) {
+      event.preventDefault();
+      applyModuleScale(scaleBtn.dataset.sectionKey, Number(scaleBtn.dataset.scaleDelta) || 0);
+      return;
+    }
 
     const button = event.target.closest?.('[data-edit-action]');
     if (!button || !app.contains(button)) return;
@@ -400,6 +560,13 @@ export function initPreviewEdit({ getData, applyData, onSave, getLocale = () => 
   app.addEventListener('keydown', handleKeydown);
   app.addEventListener('pointerdown', handlePointerDown);
   app.addEventListener('click', handleClick);
+  app.addEventListener('contextmenu', handleContextMenu);
+  formatMenu.addEventListener('pointerdown', event => event.preventDefault());
+  formatMenu.addEventListener('click', handleFormatMenuClick);
+  const handleDocumentPointerDown = event => {
+    if (!formatMenu.hidden && !formatMenu.contains(event.target)) hideFormatMenu();
+  };
+  document.addEventListener('pointerdown', handleDocumentPointerDown);
   app.addEventListener('keydown', handlePhotoKey);
   app.addEventListener('compositionstart', () => { composing = true; });
   app.addEventListener('compositionend', event => {
@@ -420,7 +587,11 @@ export function initPreviewEdit({ getData, applyData, onSave, getLocale = () => 
       app.removeEventListener('keydown', handleKeydown);
       app.removeEventListener('pointerdown', handlePointerDown);
       app.removeEventListener('click', handleClick);
+      app.removeEventListener('contextmenu', handleContextMenu);
+      formatMenu.removeEventListener('click', handleFormatMenuClick);
+      document.removeEventListener('pointerdown', handleDocumentPointerDown);
       app.removeEventListener('keydown', handlePhotoKey);
+      formatMenu.remove();
       fileInput.remove();
     },
   };
