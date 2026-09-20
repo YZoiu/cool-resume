@@ -32,26 +32,12 @@ body:not(.page-separator-mode), body.page-separator-mode #app { transition: padd
 .resume-editor-toolbar-button.primary { border-color: #292524; background: #292524; color: #fff; box-shadow: 0 2px 5px rgba(41,37,36,.16); }
 .resume-editor-toolbar-button.primary:hover { background: #44403c; }
 .resume-editor-toolbar-button.quiet { color: #78716c; }
-.resume-editor-toolbar-repository {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 28px;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: #57534e;
-  text-decoration: none;
-  transition: border-color 150ms, background-color 150ms, color 150ms, box-shadow 150ms;
-}
-.resume-editor-toolbar-repository svg { width: 16px; height: 16px; stroke-width: 1.8; }
-.resume-editor-toolbar-repository:hover { border-color: #d6d3d1; background: #f5f4f2; color: #292524; }
-.resume-editor-toolbar-repository:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .resume-editor-toggle { padding: 0 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; }
 .resume-editor-toggle:hover { border-color: #d6d3d1; background: #f5f4f2; }
 .resume-editor-toggle input { accent-color: #2563eb; }
 .resume-editor-toolbar-drawer {
-  position: absolute; top: calc(100% + 10px); right: 20px; width: min(440px, calc(100vw - 32px));
+  position: absolute; top: calc(100% + 10px); right: 20px; width: min(560px, calc(100vw - 32px));
+  max-height: min(78vh, 740px); overflow: auto;
   padding: 17px 18px 16px; border: 1px solid rgba(214,211,209,.9); border-radius: 15px;
   background: rgba(255,255,255,.97); box-shadow: 0 18px 48px rgba(41,37,36,.16), 0 2px 8px rgba(41,37,36,.08);
   opacity: 0; transform: translateY(-7px) scale(.98); transform-origin: top right;
@@ -63,11 +49,15 @@ body:not(.page-separator-mode), body.page-separator-mode #app { transition: padd
 .resume-editor-toolbar-drawer-header strong { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .resume-editor-toolbar-drawer-header span { color: #8a8580; font-size: 12px; }
 .resume-editor-layout-options { display: grid; gap: 8px; margin-bottom: 14px; }
-.resume-editor-layout-option { display: flex; align-items: center; justify-content: space-between; height: 32px; margin: 0; padding: 0 9px; border: 1px solid #e7e5e4; border-radius: 6px; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
+.resume-editor-layout-option { display: flex; align-items: center; justify-content: space-between; min-height: 32px; margin: 0; padding: 0 9px; border: 1px solid #e7e5e4; border-radius: 6px; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
 .resume-editor-layout-option:hover { border-color: #d6d3d1; background: #fafaf9; }
 .resume-editor-layout-option input { width: 15px; height: 15px; margin: 0; accent-color: #2563eb; }
 .resume-editor-layout-option input:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-.resume-editor-spacing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; margin-bottom: 14px; }
+.resume-editor-layout-option-select { gap: 10px; padding: 4px 9px; cursor: default; }
+.resume-editor-title-style-select { max-width: 150px; height: 26px; padding: 0 4px; border: 1px solid #e7e5e4; border-radius: 6px; background: #fff; color: #44403c; font: 600 11px var(--font-sans); }
+.resume-editor-spacing-groups { display: grid; gap: 14px; margin-bottom: 14px; }
+.resume-editor-spacing-group h3 { margin: 0 0 8px; color: #44403c; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.resume-editor-spacing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
 .resume-editor-spacing-item { display: grid; grid-template-columns: 1fr auto; gap: 7px 8px; align-items: center; color: #57534e; font-size: 12px; font-weight: 600; }
 .resume-editor-spacing-item output { color: #78716c; font-family: var(--font-mono); font-size: 11px; font-weight: 400; }
 .resume-editor-spacing-item input { grid-column: 1 / -1; width: 100%; accent-color: #2563eb; }

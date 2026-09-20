@@ -3,10 +3,17 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { buildThirdPartyNotices } from './scripts/third-party-notices.js';
+import {
+  EMPTY_RESUME,
+  createVersionId,
+  deleteEntry,
+  getVersion,
+  moveEntries,
+  renameEntry,
+} from './src/version-catalog.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataRoot = path.resolve(__dirname, 'data');
@@ -35,52 +42,13 @@ async function readRequestJson(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-function getVersion(catalog, versionId) {
-  const version = catalog.versions?.find(item => item.id === versionId);
-  if (!version) throw new Error(`未知简历版本：${versionId}`);
-  return version;
-}
-
-function moveEntries(catalog, versionId, targetId, placement) {
-  const moving = getVersion(catalog, versionId);
-  const target = getVersion(catalog, targetId);
-  if (moving.id === target.id) throw new Error('无效的拖拽目标');
-  const movingIds = new Set([versionId]);
-  let changed = true;
-  while (changed) {
-    changed = false;
-    catalog.versions.forEach(item => {
-      if (movingIds.has(item.parentId) && !movingIds.has(item.id)) { movingIds.add(item.id); changed = true; }
-    });
+async function removeVersionFile(file) {
+  try {
+    await execFileAsync('trash', [file]);
+  } catch {
+    await fs.promises.rm(file, { force: true });
   }
-  if (movingIds.has(targetId)) throw new Error('不能移动到自身或子版本中');
-  const remaining = catalog.versions.filter(item => !movingIds.has(item.id));
-  const targetIndex = remaining.findIndex(item => item.id === targetId);
-  const targetSubtreeIds = new Set([targetId]);
-  let expanded = true;
-  while (expanded) {
-    expanded = false;
-    remaining.forEach(item => {
-      if (targetSubtreeIds.has(item.parentId) && !targetSubtreeIds.has(item.id)) { targetSubtreeIds.add(item.id); expanded = true; }
-    });
-  }
-  const subtreeEnd = remaining.reduce((index, item, itemIndex) => targetSubtreeIds.has(item.id) ? Math.max(index, itemIndex) : index, targetIndex);
-  const insertIndex = placement === 'before' ? targetIndex : placement === 'after' || placement === 'child' ? subtreeEnd + 1 : -1;
-  if (insertIndex < 0) throw new Error('无效的拖拽位置');
-  const now = new Date().toISOString();
-  const nextMoving = catalog.versions.filter(item => movingIds.has(item.id)).map(item => item.id === versionId ? { ...item, parentId: placement === 'child' ? targetId : target.parentId, updatedAt: now } : item);
-  remaining.splice(insertIndex, 0, ...nextMoving);
-  return { ...catalog, versions: remaining };
 }
-
-function newVersionId() {
-  return `v-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
-}
-
-const EMPTY_RESUME = {
-  name: '', title: '', experience: '',
-  basicInfo: { items: [] }, work: [], projects: [], skills: [], education: [],
-};
 
 function resumeSourceSyncPlugin() {
   return {
@@ -88,7 +56,7 @@ function resumeSourceSyncPlugin() {
     // JSON 编辑器已经通过 onChange 重绘预览；它随后写回源文件时不能再触发
     // Vite 整页 HMR，否则会销毁编辑器、光标和打开状态。
     handleHotUpdate({ file }) {
-    if (path.resolve(file).startsWith(dataRoot)) return [];
+      if (path.resolve(file).startsWith(dataRoot)) return [];
       return undefined;
     },
     configureServer(server) {
@@ -107,7 +75,7 @@ function resumeSourceSyncPlugin() {
             if (!normalizedName) throw new Error('版本名称不能为空');
             if (parentId !== null) getVersion(catalog, parentId);
             const source = copyFromVersionId === null ? null : getVersion(catalog, copyFromVersionId);
-            const versionId = newVersionId();
+            const versionId = createVersionId();
             const now = new Date().toISOString();
             const version = { id: versionId, name: normalizedName, parentId, file: `versions/${versionId}.json`, createdAt: now, updatedAt: now };
             const data = source ? await readJson(versionPath(source.id)) : EMPTY_RESUME;
@@ -150,21 +118,15 @@ function resumeSourceSyncPlugin() {
               const { name } = await readRequestJson(req);
               const normalizedName = String(name || '').trim();
               if (!normalizedName) throw new Error('版本名称不能为空');
-              const now = new Date().toISOString();
-              const nextCatalog = { ...catalog, versions: catalog.versions.map(item => item.id === version.id ? { ...item, name: normalizedName, updatedAt: now } : item) };
+              const nextCatalog = renameEntry(catalog, version.id, normalizedName);
               await writeJsonAtomic(catalogPath, nextCatalog);
               send(200, nextCatalog);
               return;
             }
             if (req.method === 'DELETE') {
-              const children = catalog.versions.filter(item => item.parentId === version.id);
-              if (children.length) throw new Error('请先删除所有子版本');
-              if (catalog.versions.length === 1) throw new Error('至少保留一个版本');
-              const nextVersions = catalog.versions.filter(item => item.id !== version.id);
-              const nextActiveVersionId = catalog.activeVersionId === version.id ? (version.parentId || nextVersions[0].id) : catalog.activeVersionId;
-              const nextCatalog = { ...catalog, activeVersionId: nextActiveVersionId, versions: nextVersions };
+              const nextCatalog = deleteEntry(catalog, version.id);
               await writeJsonAtomic(catalogPath, nextCatalog);
-              await execFileAsync('trash', [file]);
+              await removeVersionFile(file);
               send(200, nextCatalog);
               return;
             }

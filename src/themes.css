@@ -169,6 +169,168 @@
   --theme-header-padding-bottom: 0;
 }
 
+/* ===== Minimal slate：冷静灰极简栏 ===== */
+[data-theme="minimal-slate"] {
+  --theme-bg: #ffffff;
+  --theme-text: #1f2937;
+  --theme-text-soft: #64748b;
+  --theme-accent: #475569;
+  --theme-border: #e2e8f0;
+  --theme-header-name-color: #0f172a;
+  --theme-header-title-color: #475569;
+  --theme-section-title-bg: transparent;
+  --theme-section-title-text: #0f172a;
+  --theme-section-title-border: #94a3b8;
+  --theme-section-title-border-width: 1px;
+  --theme-section-title-padding: 0 0 3px 0;
+  --theme-section-title-border-radius: 0;
+  --theme-section-title-letter-spacing: 1px;
+  --theme-section-icon-color: #475569;
+  --theme-entry-title-color: #0f172a;
+  --theme-marker-color: #475569;
+  --theme-highlight-bg: #e2e8f0;
+  --theme-link-color: #334155;
+  --theme-link-hover-border: #475569;
+  --theme-header-border: transparent;
+  --theme-header-border-width: 0;
+  --theme-header-padding-bottom: 0;
+}
+
+/* ===== Minimal forest：低饱和绿极简栏 ===== */
+[data-theme="minimal-forest"] {
+  --theme-bg: #ffffff;
+  --theme-text: #1f2937;
+  --theme-text-soft: #4b6354;
+  --theme-accent: #2f6f4e;
+  --theme-border: #d7e3da;
+  --theme-header-name-color: #143325;
+  --theme-header-title-color: #2f6f4e;
+  --theme-section-title-bg: transparent;
+  --theme-section-title-text: #143325;
+  --theme-section-title-border: #2f6f4e;
+  --theme-section-title-border-width: 1px;
+  --theme-section-title-padding: 0 0 3px 0;
+  --theme-section-title-border-radius: 0;
+  --theme-section-title-letter-spacing: 0.8px;
+  --theme-section-icon-color: #2f6f4e;
+  --theme-entry-title-color: #143325;
+  --theme-marker-color: #2f6f4e;
+  --theme-highlight-bg: #e4f0e7;
+  --theme-link-color: #2f6f4e;
+  --theme-link-hover-border: #2f6f4e;
+  --theme-header-border: transparent;
+  --theme-header-border-width: 0;
+  --theme-header-padding-bottom: 0;
+}
+
+/* ===== Minimal ink：黑白极简栏 ===== */
+[data-theme="minimal-ink"] {
+  --theme-bg: #ffffff;
+  --theme-text: #18181b;
+  --theme-text-soft: #71717a;
+  --theme-accent: #18181b;
+  --theme-border: #e4e4e7;
+  --theme-header-name-color: #09090b;
+  --theme-header-title-color: #3f3f46;
+  --theme-section-title-bg: transparent;
+  --theme-section-title-text: #09090b;
+  --theme-section-title-border: #18181b;
+  --theme-section-title-border-width: 1px;
+  --theme-section-title-padding: 0 0 3px 0;
+  --theme-section-title-border-radius: 0;
+  --theme-section-title-letter-spacing: 1.1px;
+  --theme-section-icon-color: #18181b;
+  --theme-entry-title-color: #18181b;
+  --theme-marker-color: #18181b;
+  --theme-highlight-bg: #f4f4f5;
+  --theme-link-color: #27272a;
+  --theme-link-hover-border: #18181b;
+  --theme-header-border: transparent;
+  --theme-header-border-width: 0;
+  --theme-header-padding-bottom: 0;
+}
+
+/* ===== Navy burgundy：酒红填充标题栏 ===== */
+[data-theme="navy-burgundy"] {
+  --theme-bg: #ffffff;
+  --theme-text: #332b2b;
+  --theme-text-soft: #756567;
+  --theme-accent: #7f1d3a;
+  --theme-border: #eadcdf;
+  --theme-header-name-color: #4a1f2b;
+  --theme-header-title-color: #7f1d3a;
+  --theme-section-title-bg: #7f1d3a;
+  --theme-section-title-text: #ffffff;
+  --theme-section-title-border: transparent;
+  --theme-section-title-border-width: 0;
+  --theme-section-title-padding: 3px 8px;
+  --theme-section-title-border-radius: 3px;
+  --theme-section-title-letter-spacing: 0.5px;
+  --theme-section-icon-color: #ffffff;
+  --theme-entry-title-color: #4a1f2b;
+  --theme-marker-color: #7f1d3a;
+  --theme-highlight-bg: #f8e8ed;
+  --theme-link-color: #7f1d3a;
+  --theme-link-hover-border: #7f1d3a;
+  --theme-header-border: #d9b4bf;
+  --theme-header-border-width: 0;
+  --theme-header-padding-bottom: 0;
+}
+
+/* ===== Navy charcoal：炭灰填充标题栏 ===== */
+[data-theme="navy-charcoal"] {
+  --theme-bg: #ffffff;
+  --theme-text: #292524;
+  --theme-text-soft: #78716c;
+  --theme-accent: #292524;
+  --theme-border: #e7e5e4;
+  --theme-header-name-color: #1c1917;
+  --theme-header-title-color: #44403c;
+  --theme-section-title-bg: #292524;
+  --theme-section-title-text: #ffffff;
+  --theme-section-title-border: transparent;
+  --theme-section-title-border-width: 0;
+  --theme-section-title-padding: 3px 8px;
+  --theme-section-title-border-radius: 3px;
+  --theme-section-title-letter-spacing: 0.5px;
+  --theme-section-icon-color: #ffffff;
+  --theme-entry-title-color: #1c1917;
+  --theme-marker-color: #292524;
+  --theme-highlight-bg: #f5f5f4;
+  --theme-link-color: #44403c;
+  --theme-link-hover-border: #292524;
+  --theme-header-border: #d6d3d1;
+  --theme-header-border-width: 0;
+  --theme-header-padding-bottom: 0;
+}
+
+/* ===== Navy forest：墨绿填充标题栏 ===== */
+[data-theme="navy-forest"] {
+  --theme-bg: #ffffff;
+  --theme-text: #1f2937;
+  --theme-text-soft: #4b6354;
+  --theme-accent: #1f4d38;
+  --theme-border: #d7e3da;
+  --theme-header-name-color: #143325;
+  --theme-header-title-color: #1f4d38;
+  --theme-section-title-bg: #1f4d38;
+  --theme-section-title-text: #ffffff;
+  --theme-section-title-border: transparent;
+  --theme-section-title-border-width: 0;
+  --theme-section-title-padding: 3px 8px;
+  --theme-section-title-border-radius: 3px;
+  --theme-section-title-letter-spacing: 0.5px;
+  --theme-section-icon-color: #ffffff;
+  --theme-entry-title-color: #143325;
+  --theme-marker-color: #1f4d38;
+  --theme-highlight-bg: #e4f0e7;
+  --theme-link-color: #1f4d38;
+  --theme-link-hover-border: #1f4d38;
+  --theme-header-border: #9cbfab;
+  --theme-header-border-width: 0;
+  --theme-header-padding-bottom: 0;
+}
+
 /* ===== Editorial 主题：沉稳酒红，适合强调内容叙事的高级感 ===== */
 [data-theme="editorial"] {
   --theme-bg: #fffdfb;

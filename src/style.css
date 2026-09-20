@@ -14,6 +14,10 @@
 
   /* JSON 的 style.spacing 会在启动时覆盖这些安全默认值。 */
   --resume-line-height: 1.2;
+  --resume-text-font-size: 13px;
+  --resume-name-size: 22px;
+  --resume-section-title-size: 14px;
+  --resume-entry-title-size: 15.5px;
   --resume-body-padding-y: 11px;
   --resume-section-gap: 12px;
   --resume-entry-gap: 16px;
@@ -27,6 +31,8 @@
   --resume-keyword-gap: 6px;
   --resume-skill-gap: 6px;
   --resume-basic-info-gap: 2px;
+  --resume-profile-column-gap: 16px;
+  --resume-education-gap: 6px;
   --resume-project-separator: 16px;
   --resume-project-inner-divider: 14px;
   --resume-photo-width: 25mm;
@@ -46,9 +52,14 @@
 *:not(dialog) { margin: 0; }
 
 html {
-  font-size: var(--text-font-size);
+  font-size: var(--resume-text-font-size, var(--text-font-size));
   /* 自然流模式也保留画布与简历纸张的背景层次。 */
   background: #525659;
+}
+
+html.resume-capturing,
+html.resume-capturing body {
+  background: #ffffff !important;
 }
 
 body {
@@ -77,7 +88,7 @@ body {
   position: relative;
   margin-bottom: var(--resume-header-gap);
   border-bottom: var(--theme-header-border-width) solid var(--theme-header-border);
-  padding-bottom: var(--theme-header-padding-bottom);
+  padding-bottom: calc(var(--theme-header-padding-bottom) + var(--resume-header-bottom-gap));
 }
 html.resume-show-photo .resume-header {
   min-height: var(--resume-photo-height);
@@ -91,7 +102,7 @@ html.resume-show-photo .resume-header {
 }
 .resume-name-row .resume-name { flex: 1; min-width: 0; }
 .resume-name {
-  font-size: calc(22px * var(--resume-module-scale, 1));
+  font-size: calc(var(--resume-name-size, 22px) * var(--resume-module-scale, 1));
   font-weight: 700;
   color: var(--theme-header-name-color);
   letter-spacing: -0.5px;
@@ -156,7 +167,7 @@ html.resume-show-photo .resume-photo { display: block; }
 .resume-profile {
   display: grid;
   grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
-  gap: 2px 16px;
+  gap: 2px var(--resume-profile-column-gap, 16px);
   margin-top: 4px;
 }
 .resume-profile-basic,
@@ -171,8 +182,8 @@ html.resume-show-photo .resume-photo { display: block; }
   gap: var(--resume-basic-info-gap);
 }
 .resume-profile-education-entry + .resume-profile-education-entry {
-  margin-top: 6px;
-  padding-top: 6px;
+  margin-top: var(--resume-education-gap, 6px);
+  padding-top: var(--resume-education-gap, 6px);
   border-top: 1px dashed var(--theme-border);
 }
 
@@ -195,15 +206,15 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: calc(14px * var(--resume-module-scale, 1));
+  font-size: calc(var(--resume-section-title-size, 14px) * var(--resume-module-scale, 1));
   font-weight: 700;
-  letter-spacing: var(--theme-section-title-letter-spacing);
+  letter-spacing: var(--resume-section-title-tracking, var(--theme-section-title-letter-spacing));
   color: var(--theme-section-title-text);
   background: var(--theme-section-title-bg);
   margin-bottom: var(--resume-section-title-gap);
-  padding: var(--theme-section-title-padding);
-  border-bottom: var(--theme-section-title-border-width) solid var(--theme-section-title-border);
-  border-radius: var(--theme-section-title-border-radius);
+  padding: var(--resume-section-title-padding, var(--theme-section-title-padding));
+  border-bottom: var(--resume-section-title-rule, var(--theme-section-title-border-width)) solid var(--theme-section-title-border);
+  border-radius: var(--resume-section-title-radius, var(--theme-section-title-border-radius));
 }
 .resume-section-icon {
   width: 18px;
@@ -211,6 +222,23 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   flex-shrink: 0;
   color: var(--theme-section-icon-color);
 }
+html.resume-title-style-minimal .resume-section-title {
+  background: transparent;
+  color: var(--theme-header-name-color);
+  border-bottom-color: var(--theme-accent);
+  border-bottom-width: var(--resume-section-title-rule, 1px);
+  border-radius: var(--resume-section-title-radius, 0);
+  padding: var(--resume-section-title-padding, 0 0 3px 0);
+}
+html.resume-title-style-minimal .resume-section-icon { color: var(--theme-accent); }
+html.resume-title-style-bar .resume-section-title {
+  background: var(--theme-accent);
+  color: #ffffff;
+  border-bottom-width: 0;
+  border-radius: var(--resume-section-title-radius, 3px);
+  padding: var(--resume-section-title-padding, 3px 8px);
+}
+html.resume-title-style-bar .resume-section-icon { color: #ffffff; }
 .resume-section-title-text { min-width: 0; }
 .resume-font-scale-controls {
   display: none;
@@ -262,7 +290,7 @@ html.resume-preview-edit-mode .resume-font-scale-controls { display: inline-flex
   margin-bottom: var(--resume-entry-header-gap);
 }
 .resume-entry-title {
-  font-size: calc(15.5px * var(--resume-module-scale, 1));
+  font-size: calc(var(--resume-entry-title-size, 15.5px) * var(--resume-module-scale, 1));
   font-weight: 600;
   color: var(--theme-entry-title-color);
   margin-bottom: 2px;

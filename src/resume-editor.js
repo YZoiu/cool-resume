@@ -40,7 +40,7 @@ export function getInitialResumeData(defaultData) {
 }
 
 /** JSON 编辑器：通过运行模式对应的 ResumeStore 保存当前版本。 */
-export function initResumeEditor({ initialData, initialText, defaultData, onChange, onSave, locale = 'zh-CN' }) {
+export function initResumeEditor({ initialData, initialText, defaultData: initialDefaultData, onChange, onSave, locale = 'zh-CN' }) {
   const editor = document.createElement('aside');
   editor.className = 'resume-json-editor';
   editor.setAttribute('aria-label', t(locale, 'editor.title'));
@@ -71,6 +71,7 @@ export function initResumeEditor({ initialData, initialText, defaultData, onChan
   const status = editor.querySelector('[data-editor-status]');
   const fileInput = editor.querySelector('.resume-json-editor-file-input');
   let currentData = clone(initialData);
+  let defaultData = clone(initialDefaultData);
   let inputTimer = null;
 
   function setStatus(message, type = 'ok') {
@@ -270,7 +271,11 @@ export function initResumeEditor({ initialData, initialText, defaultData, onChan
     setOpen,
     isOpen: () => isOpen,
     getValue,
-    setData: value => { currentData = clone(value); writeInput(currentData); },
+    setData: (value, { exampleData, force = false } = {}) => {
+      currentData = clone(value);
+      if (exampleData) defaultData = clone(exampleData);
+      writeInput(currentData, { force });
+    },
     destroy: () => {
       window.clearTimeout(inputTimer);
       document.removeEventListener('keydown', handleEditorShortcut);

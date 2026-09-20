@@ -1,6 +1,7 @@
 import './dev-panel.css';
 import { t } from './app-i18n.js';
-import { getStoredPageSeparators, setPageSeparators, refreshPageSeparators, getStoredCompactMode, setStoredCompactMode, applyCompactModeClass, getStoredSmartLayout, setStoredSmartLayout, applySmartLayoutClass, getStoredShowPhoto, setStoredShowPhoto, applyShowPhotoClass, withForcedPageSeparators, COMPACT_PAGE_MARGIN_MM, DEFAULT_PAGE_MARGIN_MM } from './page-separator-mode.js';
+import { getStoredPageSeparators, setPageSeparators, refreshPageSeparators, schedulePageSeparatorRefresh, getStoredCompactMode, setStoredCompactMode, applyCompactModeClass, getStoredSmartLayout, setStoredSmartLayout, applySmartLayoutClass, getStoredShowPhoto, setStoredShowPhoto, applyShowPhotoClass, withForcedPageSeparators, COMPACT_PAGE_MARGIN_MM, DEFAULT_PAGE_MARGIN_MM } from './page-separator-mode.js';
+import { childrenOf as catalogChildren, isAncestorOfActive, isDescendant } from './version-catalog.js';
 import { exportResumeImage } from './image-export.js';
 import { exportResumePdf } from './pdf-export.js';
 import { isTauriShell, SaveCancelledError } from './file-save.js';
@@ -8,32 +9,79 @@ import { createIcons } from 'lucide';
 import { APP_ICONS } from './icon-set.js';
 import Sortable from 'sortablejs';
 
-const THEMES = [
-  { id: 'minimal', label: '极简蓝', en: 'Minimal blue' },
-  { id: 'navy', label: '深蓝标题栏', en: 'Navy header' },
-  { id: 'ats', label: '黑白 ATS', en: 'Monochrome ATS' },
-  { id: 'teal', label: '松石科技', en: 'Teal technology' },
-  { id: 'graphite', label: '石墨专业', en: 'Graphite professional' },
-  { id: 'editorial', label: '酒红编辑风', en: 'Burgundy editorial' },
+const THEME_GROUPS = [
+  {
+    id: 'minimal',
+    labelKey: 'app.themeGroupMinimal',
+    themes: [
+      { id: 'minimal', label: '极简蓝', en: 'Blue' },
+      { id: 'minimal-slate', label: '极简灰', en: 'Slate' },
+      { id: 'minimal-forest', label: '极简绿', en: 'Forest' },
+      { id: 'minimal-ink', label: '极简黑', en: 'Ink' },
+      { id: 'ats', label: 'ATS 黑白', en: 'ATS' },
+      { id: 'graphite', label: '极简橙', en: 'Graphite' },
+      { id: 'editorial', label: '极简酒红', en: 'Editorial' },
+    ],
+  },
+  {
+    id: 'bar',
+    labelKey: 'app.themeGroupBar',
+    themes: [
+      { id: 'navy', label: '深蓝标题栏', en: 'Navy' },
+      { id: 'teal', label: '松石标题栏', en: 'Teal' },
+      { id: 'navy-forest', label: '墨绿标题栏', en: 'Pine' },
+      { id: 'navy-burgundy', label: '酒红标题栏', en: 'Burgundy' },
+      { id: 'navy-charcoal', label: '炭灰标题栏', en: 'Charcoal' },
+    ],
+  },
+];
+const TITLE_STYLE_OPTIONS = [
+  { id: 'theme', key: 'app.titleStyleTheme' },
+  { id: 'minimal', key: 'app.titleStyleMinimal' },
+  { id: 'bar', key: 'app.titleStyleBar' },
+];
+const SPACING_GROUPS = [
+  { id: 'paper', key: 'spacing.paper' },
+  { id: 'header', key: 'spacing.header' },
+  { id: 'title', key: 'spacing.title' },
+  { id: 'section', key: 'spacing.section' },
+  { id: 'entry', key: 'spacing.entry' },
+  { id: 'list', key: 'spacing.list' },
 ];
 const SPACING_CONTROLS = [
-  { key: 'resume-page-margin', label: '页边距', en: 'Page margin', min: 4, max: 16, step: 1, unit: 'mm', fallback: DEFAULT_PAGE_MARGIN_MM },
-  { key: 'resume-line-height', label: '行高', en: 'Line height', min: 1.05, max: 1.8, step: 0.05, unit: '' },
-  { key: 'resume-body-padding-y', label: '顶部边距', en: 'Top padding', min: 0, max: 40, step: 1, unit: 'px' },
-  { key: 'resume-header-gap', label: '姓名区块', en: 'Name block', min: 0, max: 28, step: 1, unit: 'px' },
-  { key: 'resume-section-gap', label: '章节间距', en: 'Section gap', min: 0, max: 30, step: 1, unit: 'px' },
-  { key: 'resume-section-rule-gap', label: '章节分割线', en: 'Section rule', min: 0, max: 24, step: 1, unit: 'px' },
-  { key: 'resume-section-title-gap', label: '标题与内容', en: 'Title gap', min: 0, max: 16, step: 1, unit: 'px' },
-  { key: 'resume-entry-gap', label: '条目间距', en: 'Entry gap', min: 0, max: 24, step: 1, unit: 'px' },
-  { key: 'resume-project-separator', label: '项目分割线', en: 'Project rule', min: 0, max: 28, step: 1, unit: 'px' },
-  { key: 'resume-project-inner-divider', label: '项目内分割线', en: 'Inner rule', min: 0, max: 24, step: 1, unit: 'px' },
-  { key: 'resume-skill-gap', label: '技能行距', en: 'Skill gap', min: 0, max: 16, step: 1, unit: 'px' },
-  { key: 'resume-list-gap', label: '列表间距', en: 'List gap', min: 0, max: 8, step: 1, unit: 'px' },
-  { key: 'resume-basic-info-gap', label: '信息行距', en: 'Info gap', min: 0, max: 14, step: 1, unit: 'px' },
+  { key: 'resume-page-margin', group: 'paper', label: '页边距', en: 'Page margin', min: 4, max: 16, step: 1, unit: 'mm', fallback: DEFAULT_PAGE_MARGIN_MM },
+  { key: 'resume-body-padding-y', group: 'paper', label: '顶部边距', en: 'Top padding', min: 0, max: 40, step: 1, unit: 'px' },
+  { key: 'resume-line-height', group: 'paper', label: '行高', en: 'Line height', min: 1.05, max: 1.8, step: 0.05, unit: '' },
+  { key: 'resume-text-font-size', group: 'paper', label: '正文字号', en: 'Body size', min: 11, max: 16, step: 0.5, unit: 'px', fallback: 13, alias: '--text-font-size' },
+  { key: 'resume-header-gap', group: 'header', label: '姓名区块', en: 'Name block', min: 0, max: 28, step: 1, unit: 'px' },
+  { key: 'resume-header-bottom-gap', group: 'header', label: '页眉底部', en: 'Header bottom', min: 0, max: 18, step: 1, unit: 'px' },
+  { key: 'resume-name-size', group: 'header', label: '姓名字号', en: 'Name size', min: 16, max: 32, step: 1, unit: 'px', fallback: 22 },
+  { key: 'resume-basic-info-gap', group: 'header', label: '信息行距', en: 'Info gap', min: 0, max: 14, step: 1, unit: 'px' },
+  { key: 'resume-profile-column-gap', group: 'header', label: '信息列距', en: 'Info columns', min: 8, max: 36, step: 1, unit: 'px', fallback: 16 },
+  { key: 'resume-education-gap', group: 'header', label: '教育条目', en: 'Education gap', min: 0, max: 16, step: 1, unit: 'px', fallback: 6 },
+  { key: 'resume-section-title-size', group: 'title', label: '标题字号', en: 'Title size', min: 12, max: 20, step: 0.5, unit: 'px', fallback: 14 },
+  { key: 'resume-section-title-pad-y', group: 'title', label: '标题上下边距', en: 'Title pad Y', min: 0, max: 12, step: 1, unit: 'px', optional: true, fallback: 3 },
+  { key: 'resume-section-title-pad-x', group: 'title', label: '标题左右边距', en: 'Title pad X', min: 0, max: 16, step: 1, unit: 'px', optional: true, fallback: 8 },
+  { key: 'resume-section-title-radius', group: 'title', label: '标题圆角', en: 'Title radius', min: 0, max: 10, step: 1, unit: 'px', optional: true, fallback: 3 },
+  { key: 'resume-section-title-rule', group: 'title', label: '下划线粗细', en: 'Underline', min: 0, max: 4, step: 1, unit: 'px', optional: true, fallback: 1 },
+  { key: 'resume-section-title-tracking', group: 'title', label: '标题字距', en: 'Tracking', min: 0, max: 2, step: 0.1, unit: 'px', optional: true, fallback: 1 },
+  { key: 'resume-section-title-gap', group: 'title', label: '标题与内容', en: 'Title gap', min: 0, max: 16, step: 1, unit: 'px' },
+  { key: 'resume-section-gap', group: 'section', label: '章节间距', en: 'Section gap', min: 0, max: 30, step: 1, unit: 'px' },
+  { key: 'resume-section-rule-gap', group: 'section', label: '章节分割线', en: 'Section rule', min: 0, max: 24, step: 1, unit: 'px' },
+  { key: 'resume-entry-gap', group: 'entry', label: '条目间距', en: 'Entry gap', min: 0, max: 24, step: 1, unit: 'px' },
+  { key: 'resume-entry-header-gap', group: 'entry', label: '条目标题', en: 'Entry header', min: 0, max: 12, step: 1, unit: 'px' },
+  { key: 'resume-entry-title-size', group: 'entry', label: '条目标题字号', en: 'Entry size', min: 12, max: 20, step: 0.5, unit: 'px', fallback: 15.5 },
+  { key: 'resume-project-separator', group: 'entry', label: '项目分割线', en: 'Project rule', min: 0, max: 28, step: 1, unit: 'px' },
+  { key: 'resume-project-inner-divider', group: 'entry', label: '项目内分割线', en: 'Inner rule', min: 0, max: 24, step: 1, unit: 'px' },
+  { key: 'resume-skill-gap', group: 'list', label: '技能行距', en: 'Skill gap', min: 0, max: 16, step: 1, unit: 'px' },
+  { key: 'resume-list-gap', group: 'list', label: '列表间距', en: 'List gap', min: 0, max: 8, step: 1, unit: 'px' },
+  { key: 'resume-list-top-gap', group: 'list', label: '列表上间距', en: 'List top', min: 0, max: 12, step: 1, unit: 'px' },
+  { key: 'resume-keyword-gap', group: 'list', label: '关键字间距', en: 'Keyword gap', min: 0, max: 14, step: 1, unit: 'px' },
 ];
 const STORAGE_KEY_THEME = 'myresume2-theme';
 const STORAGE_KEY_SPACING = 'myresume2-spacing';
 const STORAGE_KEY_TOOLBAR = 'myresume2-editor-toolbar-visible';
+const STORAGE_KEY_TITLE_STYLE = 'myresume2-title-style';
 let SPACING_DEFAULTS = {};
 
 function escapeText(value) {
@@ -41,7 +89,7 @@ function escapeText(value) {
 }
 
 function childrenOf(catalog, parentId) {
-  return (catalog?.versions || []).filter(version => version.parentId === parentId);
+  return catalogChildren(catalog, parentId);
 }
 
 function formatVersionDate(value, locale) {
@@ -62,28 +110,43 @@ function exportFileName(catalog, activeVersion) {
   return `resume-${safe(version?.name)}-${safe(version?.id)}-${timestamp}`;
 }
 
-function isDescendant(catalog, versionId, ancestorId) {
-  let cursor = (catalog?.versions || []).find(version => version.id === versionId);
-  while (cursor?.parentId) {
-    if (cursor.parentId === ancestorId) return true;
-    cursor = (catalog?.versions || []).find(version => version.id === cursor.parentId);
-  }
-  return false;
+function getStoredTitleStyle() {
+  try {
+    const value = localStorage.getItem(STORAGE_KEY_TITLE_STYLE);
+    return TITLE_STYLE_OPTIONS.some(item => item.id === value) ? value : 'theme';
+  } catch { return 'theme'; }
+}
+function setStoredTitleStyle(value) {
+  try { localStorage.setItem(STORAGE_KEY_TITLE_STYLE, value); } catch { /* ignore */ }
+}
+function applyTitleStyle(value) {
+  const root = document.documentElement;
+  root.classList.toggle('resume-title-style-minimal', value === 'minimal');
+  root.classList.toggle('resume-title-style-bar', value === 'bar');
 }
 
-function isAncestorOfActive(catalog, versionId, activeVersionId) {
-  let cursor = (catalog?.versions || []).find(version => version.id === activeVersionId);
-  while (cursor?.parentId) {
-    if (cursor.parentId === versionId) return true;
-    cursor = (catalog?.versions || []).find(version => version.id === cursor.parentId);
-  }
-  return false;
+function renderThemeOptions(currentTheme, locale) {
+  return THEME_GROUPS.map(group => `<optgroup label="${t(locale, group.labelKey)}">${group.themes.map(theme => `<option value="${theme.id}" ${theme.id === currentTheme ? 'selected' : ''}>${locale === 'en-US' ? theme.en : theme.label}</option>`).join('')}</optgroup>`).join('');
 }
 
-function renderVersionNode(catalog, version, activeVersionId, depth, locale) {
+function renderSpacingControls(locale) {
+  return SPACING_GROUPS.map(group => {
+    const controls = SPACING_CONTROLS.filter(item => item.group === group.id);
+    if (!controls.length) return '';
+    return `<section class="resume-editor-spacing-group"><h3>${t(locale, group.key)}</h3><div class="resume-editor-spacing-grid">${controls.map(control => `<label class="resume-editor-spacing-item"><span>${locale === 'en-US' ? control.en : control.label}</span><output data-key="${control.key}"></output><input type="range" data-key="${control.key}" min="${control.min}" max="${control.max}" step="${control.step}" value="${SPACING_DEFAULTS[control.key]}" /></label>`).join('')}</div></section>`;
+  }).join('');
+}
+
+function spacingCssValue(control, value) {
+  if (control.key === 'resume-line-height') return String(value);
+  return `${value}${control.unit || ''}`;
+}
+
+function renderVersionNode(catalog, version, activeVersionId, depth, locale, expansion) {
   const children = childrenOf(catalog, version.id);
   const hasChildren = children.length > 0;
-  const expanded = version.id === activeVersionId || isAncestorOfActive(catalog, version.id, activeVersionId);
+  const defaultExpanded = version.id === activeVersionId || isAncestorOfActive(catalog, version.id, activeVersionId);
+  const expanded = expansion?.collapsed?.has(version.id) ? false : expansion?.expanded?.has(version.id) || defaultExpanded;
   const active = version.id === activeVersionId;
   const deleteDisabled = hasChildren || (catalog?.versions || []).length === 1;
   const createdDate = formatVersionDate(version.createdAt, locale) || t(locale, 'version.noDate');
@@ -99,13 +162,13 @@ function renderVersionNode(catalog, version, activeVersionId, depth, locale) {
         <button type="button" class="resume-version-tree-action danger" data-version-action="delete" data-version-id="${escapeText(version.id)}" title="${deleteDisabled ? t(locale, 'version.deleteDisabled') : t(locale, 'version.delete')}" aria-label="${t(locale, 'version.delete')}：${escapeText(version.name)}" ${deleteDisabled ? 'disabled' : ''}><i data-lucide="trash-2"></i></button>
       </span>
     </div>
-    <div class="resume-version-tree-children" role="group" data-version-children ${hasChildren && !expanded ? 'hidden' : ''}>${children.map(child => renderVersionNode(catalog, child, activeVersionId, depth + 1, locale)).join('')}</div>
+    <div class="resume-version-tree-children" role="group" data-version-children ${hasChildren && !expanded ? 'hidden' : ''}>${children.map(child => renderVersionNode(catalog, child, activeVersionId, depth + 1, locale, expansion)).join('')}</div>
   </div>`;
 }
 
-function renderVersionTree(catalog, activeVersion, locale) {
+function renderVersionTree(catalog, activeVersion, locale, expansion) {
   const roots = childrenOf(catalog, null);
-  return roots.length ? roots.map(version => renderVersionNode(catalog, version, activeVersion?.versionId, 0, locale)).join('') : `<div class="resume-version-tree-empty">${t(locale, 'version.noChildren')}</div>`;
+  return roots.length ? roots.map(version => renderVersionNode(catalog, version, activeVersion?.versionId, 0, locale, expansion)).join('') : `<div class="resume-version-tree-empty">${t(locale, 'version.noChildren')}</div>`;
 }
 
 function renderParentOptions(catalog, selectedId, locale) {
@@ -127,10 +190,26 @@ function setStoredSpacing(values) {
   try { localStorage.setItem(STORAGE_KEY_SPACING, JSON.stringify(values)); } catch { /* ignore */ }
 }
 function applySpacing(values) {
-  Object.entries({ ...SPACING_DEFAULTS, ...values }).forEach(([key, value]) => {
-    const control = SPACING_CONTROLS.find(item => item.key === key);
-    document.documentElement.style.setProperty(`--${key}`, `${value}${control?.unit || ''}`);
+  const root = document.documentElement;
+  SPACING_CONTROLS.forEach(control => {
+    const stored = values[control.key];
+    if (stored === undefined && control.optional) {
+      root.style.removeProperty(`--${control.key}`);
+      if (control.alias) root.style.removeProperty(control.alias);
+      return;
+    }
+    const value = stored ?? SPACING_DEFAULTS[control.key];
+    const cssValue = spacingCssValue(control, value);
+    root.style.setProperty(`--${control.key}`, cssValue);
+    if (control.alias) root.style.setProperty(control.alias, cssValue);
   });
+  const padY = values['resume-section-title-pad-y'];
+  const padX = values['resume-section-title-pad-x'];
+  if (padY !== undefined || padX !== undefined) {
+    root.style.setProperty('--resume-section-title-padding', `${padY ?? SPACING_DEFAULTS['resume-section-title-pad-y']}px ${padX ?? SPACING_DEFAULTS['resume-section-title-pad-x']}px`);
+  } else {
+    root.style.removeProperty('--resume-section-title-padding');
+  }
 }
 function getToolbarVisibility() {
   try { return localStorage.getItem(STORAGE_KEY_TOOLBAR) !== 'false'; } catch { return true; }
@@ -144,6 +223,11 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   const root = document.documentElement;
   let toolbarOffsetFrame = null;
   let toolbarResizeObserver = null;
+  let currentCatalog = catalog;
+  let currentActive = activeVersion;
+  const expandedIds = new Set();
+  const collapsedIds = new Set();
+  const expansion = { expanded: expandedIds, collapsed: collapsedIds };
   SPACING_DEFAULTS = Object.fromEntries(SPACING_CONTROLS.map(control => {
     const { key } = control;
     if (defaultSpacing[key] !== undefined) return [key, String(defaultSpacing[key])];
@@ -162,15 +246,15 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
         <button type="button" class="resume-editor-toolbar-button" data-action="editor" aria-pressed="false" title="${t(locale, 'app.openJson')}"><i data-lucide="code-2"></i><span>${t(locale, 'app.edit')}</span></button>
         <span class="resume-editor-toolbar-divider"></span>
         <div class="resume-version-picker">
-          <button type="button" class="resume-version-picker-button" data-action="version-menu" aria-expanded="false" aria-haspopup="tree" title="${t(locale, 'version.select')}"><i data-lucide="git-branch"></i><span>${escapeText((catalog?.versions || []).find(item => item.id === activeVersion?.versionId)?.name || activeVersion?.versionId || '')}</span><i data-lucide="chevron-down"></i></button>
+          <button type="button" class="resume-version-picker-button" data-action="version-menu" aria-expanded="false" aria-haspopup="tree" title="${t(locale, 'version.select')}"><i data-lucide="git-branch"></i><span>${escapeText((currentCatalog?.versions || []).find(item => item.id === currentActive?.versionId)?.name || currentActive?.versionId || '')}</span><i data-lucide="chevron-down"></i></button>
           <div class="resume-version-picker-menu" data-version-menu role="tree" hidden>
-            <div class="resume-version-tree">${renderVersionTree(catalog, activeVersion, locale)}</div>
+            <div class="resume-version-tree">${renderVersionTree(currentCatalog, currentActive, locale, expansion)}</div>
             <div class="resume-version-picker-footer"><button type="button" class="resume-version-root-create" data-version-action="new-root"><i data-lucide="plus"></i>${t(locale, 'version.newRoot')}</button><output class="resume-version-status" data-version-status hidden></output></div>
           </div>
         </div>
         <span class="resume-editor-toolbar-divider"></span>
         <label class="resume-editor-control" title="${t(locale, 'app.theme')}"><i data-lucide="palette"></i><select class="resume-editor-theme-select" aria-label="${t(locale, 'app.theme')}">
-          ${THEMES.map(theme => `<option value="${theme.id}" ${theme.id === currentTheme ? 'selected' : ''}>${locale === 'en-US' ? theme.en : theme.label}</option>`).join('')}
+          ${renderThemeOptions(currentTheme, locale)}
         </select></label>
         ${locales.length ? `<label class="resume-editor-control" title="${t(locale, 'app.language')}"><select class="resume-editor-locale-select" aria-label="${t(locale, 'app.language')}">${locales.map(item => `<option value="${item.code}" ${item.code === locale ? 'selected' : ''}>${item.label}</option>`).join('')}</select></label>` : ''}
         <span class="resume-editor-toolbar-divider"></span>
@@ -179,7 +263,6 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
         <button type="button" class="resume-editor-toolbar-button primary" data-action="export" title="${t(locale, 'export.title')}"><i data-lucide="file-down"></i><span>${t(locale, 'app.export')}</span></button>
         <label class="resume-editor-toggle" title="${t(locale, 'app.editModeTitle')}"><i data-lucide="pencil"></i><span>${t(locale, 'app.editMode')}</span><input type="checkbox" class="resume-editor-edit-mode-toggle" /></label>
         <button type="button" class="resume-editor-toolbar-button quiet" data-action="hide" title="${t(locale, 'app.hide')}"><i data-lucide="eye-off"></i><span>${t(locale, 'app.hide')}</span></button>
-        <a class="resume-editor-toolbar-repository" href="https://github.com/butfool/cool-resume" target="_blank" rel="noopener" aria-label="${t(locale, 'editor.repositoryAria')}" title="${t(locale, 'editor.repository')}"><i data-lucide="github"></i></a>
       </div>
     </div>
     <div class="resume-editor-toolbar-drawer" aria-hidden="true">
@@ -189,9 +272,10 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
         <label class="resume-editor-layout-option" title="${t(locale, 'app.compactModeTitle')}"><span>${t(locale, 'app.compactMode')}</span><input type="checkbox" class="resume-editor-compact-toggle" /></label>
         <label class="resume-editor-layout-option" title="${t(locale, 'app.smartLayoutTitle')}"><span>${t(locale, 'app.smartLayout')}</span><input type="checkbox" class="resume-editor-smart-layout-toggle" /></label>
         <label class="resume-editor-layout-option" title="${t(locale, 'app.showPhotoTitle')}"><span>${t(locale, 'app.showPhoto')}</span><input type="checkbox" class="resume-editor-photo-toggle" /></label>
+        <label class="resume-editor-layout-option resume-editor-layout-option-select" title="${t(locale, 'app.titleStyleTitle')}"><span>${t(locale, 'app.titleStyle')}</span><select class="resume-editor-title-style-select" aria-label="${t(locale, 'app.titleStyle')}">${TITLE_STYLE_OPTIONS.map(option => `<option value="${option.id}">${t(locale, option.key)}</option>`).join('')}</select></label>
       </div>
-      <div class="resume-editor-spacing-grid">
-        ${SPACING_CONTROLS.map(control => `<label class="resume-editor-spacing-item"><span>${locale === 'en-US' ? control.en : control.label}</span><output data-key="${control.key}"></output><input type="range" data-key="${control.key}" min="${control.min}" max="${control.max}" step="${control.step}" value="${SPACING_DEFAULTS[control.key]}" /></label>`).join('')}
+      <div class="resume-editor-spacing-groups">
+        ${renderSpacingControls(locale)}
       </div>
       <button type="button" class="resume-editor-toolbar-button" data-action="reset-spacing">${t(locale, 'app.resetSpacing')}</button>
     </div>`;
@@ -250,6 +334,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   const compactToggle = toolbar.querySelector('.resume-editor-compact-toggle');
   const smartLayoutToggle = toolbar.querySelector('.resume-editor-smart-layout-toggle');
   const photoToggle = toolbar.querySelector('.resume-editor-photo-toggle');
+  const titleStyleSelect = toolbar.querySelector('.resume-editor-title-style-select');
   const editModeToggle = toolbar.querySelector('.resume-editor-edit-mode-toggle');
   const drawer = toolbar.querySelector('.resume-editor-toolbar-drawer');
   const spacingButton = toolbar.querySelector('[data-action="spacing"]');
@@ -292,7 +377,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     versionDialogState = { mode, sourceVersionId };
     versionDialogTitle.textContent = t(locale, mode === 'copy' ? 'version.copyTitle' : mode === 'rename' ? 'version.renameTitle' : 'version.newTitle');
     versionDialogName.value = initialName;
-    versionDialogParent.innerHTML = renderParentOptions(catalog, parentId, locale);
+    versionDialogParent.innerHTML = renderParentOptions(currentCatalog, parentId, locale);
     versionDialogParentField.hidden = mode === 'new-root' || mode === 'rename';
     versionDialogStatus.hidden = true;
     versionDialog.hidden = false;
@@ -323,7 +408,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     setStoredSpacing(spacingValues);
     syncSpacingSlider('resume-page-margin');
     updateSpacingOutputs();
-    refreshPageSeparators();
+    schedulePageSeparatorRefresh();
   }
   function applySmartLayout(enabled) {
     smartLayoutEnabled = !!enabled;
@@ -335,14 +420,14 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
       setPageSeparators(true);
       return;
     }
-    refreshPageSeparators();
+    schedulePageSeparatorRefresh();
   }
   function applyShowPhoto(enabled) {
     showPhotoEnabled = !!enabled;
     photoToggle.checked = showPhotoEnabled;
     applyShowPhotoClass(showPhotoEnabled);
     setStoredShowPhoto(showPhotoEnabled);
-    refreshPageSeparators();
+    schedulePageSeparatorRefresh();
   }
   function closeDrawer() {
     drawer.classList.remove('is-open');
@@ -379,8 +464,11 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   applySmartLayoutClass(smartLayoutEnabled);
   photoToggle.checked = showPhotoEnabled;
   applyShowPhotoClass(showPhotoEnabled);
+  const titleStyle = getStoredTitleStyle();
+  titleStyleSelect.value = titleStyle;
+  applyTitleStyle(titleStyle);
   editModeToggle.checked = document.documentElement.classList.contains('resume-preview-edit-mode');
-  refreshPageSeparators();
+  schedulePageSeparatorRefresh(0);
   spacingSliders.forEach(slider => {
     if (spacingValues[slider.dataset.key] !== undefined) slider.value = spacingValues[slider.dataset.key];
     slider.addEventListener('input', () => {
@@ -388,7 +476,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
       applySpacing(spacingValues);
       setStoredSpacing(spacingValues);
       updateSpacingOutputs();
-      refreshPageSeparators();
+      schedulePageSeparatorRefresh();
     });
   });
   updateSpacingOutputs();
@@ -398,35 +486,11 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     versionMenu.hidden = !open;
     versionMenuButton.setAttribute('aria-expanded', String(open));
   });
-  versionMenu.querySelectorAll('[data-version-toggle]').forEach(toggle => toggle.addEventListener('click', () => {
-    const node = toggle.closest('[data-version-node]');
-    const items = node?.querySelector(':scope > .resume-version-tree-children');
-    if (!items) return;
-    const expanded = items.hidden;
-    items.hidden = !expanded;
-    toggle.setAttribute('aria-expanded', String(expanded));
-    toggle.setAttribute('aria-label', `${t(locale, expanded ? 'version.collapse' : 'version.expand')} ${node.querySelector('.resume-version-tree-name')?.textContent || ''}`);
-    toggle.querySelector('span').textContent = expanded ? '▾' : '▸';
-  }));
-  versionMenu.querySelectorAll('.resume-version-tree-item').forEach(item => item.addEventListener('click', async () => {
-    if (item.dataset.suppressSelect === 'true') { delete item.dataset.suppressSelect; return; }
-    closeVersionMenu();
-    try {
-      await onVersionChange?.({ versionId: item.dataset.versionId });
-    } catch (error) {
-      setVersionStatus(error.message || String(error));
-      versionMenu.hidden = false;
-      versionMenuButton.setAttribute('aria-expanded', 'true');
-    }
-  }));
-  // SortableJS 负责嵌套列表的拖拽、触摸兼容和占位动画；数据层仍由 moveVersion 统一持久化。
   let dragState = null;
   const sortableInstances = [];
-  const sortableLists = versionMenu.querySelectorAll('.resume-version-tree, .resume-version-tree-children');
   function findMoveTarget(event) {
     const list = event.to;
     const parentNode = list.closest('[data-version-node]');
-    // 进入另一个子列表才代表改变 Parent；同一子列表内移动仍然是同级排序。
     if (list.matches('.resume-version-tree-children') && parentNode && event.from !== list) {
       return { targetId: parentNode.dataset.versionNode, placement: 'child' };
     }
@@ -437,62 +501,104 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     if (previous) return { targetId: previous.dataset.versionNode, placement: 'after' };
     return null;
   }
-  sortableLists.forEach(list => {
-    sortableInstances.push(Sortable.create(list, {
-      group: { name: 'resume-version-tree', pull: true, put: true },
-      // SortableJS 使用以 `>` 开头的 selector 表示“直接子节点”；`:scope > …` 会被它判定为无效。
-      draggable: '>.resume-version-tree-node',
-      handle: '.resume-version-tree-item',
-      animation: 160,
-      easing: 'cubic-bezier(.2,.8,.2,1)',
-      fallbackOnBody: true,
-      fallbackTolerance: 5,
-      swapThreshold: 0.65,
-      emptyInsertThreshold: 12,
-      ghostClass: 'resume-version-sortable-ghost',
-      chosenClass: 'resume-version-sortable-chosen',
-      dragClass: 'resume-version-sortable-drag',
-      onMove(event) {
-        const sourceId = dragState?.sourceId;
-        const targetNode = event.to.closest('[data-version-node]') || event.related?.closest?.('[data-version-node]');
-        if (sourceId && targetNode && (targetNode.dataset.versionNode === sourceId || isDescendant(catalog, targetNode.dataset.versionNode, sourceId))) return false;
-        return true;
-      },
-      onStart(event) {
-        const item = event.item.querySelector('.resume-version-tree-item');
-        dragState = { sourceId: event.item.dataset.versionNode, item };
-        if (item) item.dataset.suppressSelect = 'true';
-        document.body.classList.add('resume-version-dragging');
-      },
-      async onEnd(event) {
-        const state = dragState;
-        dragState = null;
-        document.body.classList.remove('resume-version-dragging');
-        const item = state?.item;
-        const target = state ? findMoveTarget(event) : null;
-        if (item) window.setTimeout(() => { delete item.dataset.suppressSelect; }, 0);
-        if (!state || !target || state.sourceId === target.targetId) return;
-        try {
-          await onVersionMove?.(state.sourceId, target.targetId, target.placement);
-        } catch (error) {
-          setVersionStatus(error.message || String(error));
-        }
-      },
+  function bindVersionTree() {
+    sortableInstances.splice(0).forEach(instance => instance.destroy());
+    const tree = versionMenu.querySelector('.resume-version-tree');
+    if (!tree) return;
+    tree.innerHTML = renderVersionTree(currentCatalog, currentActive, locale, expansion);
+    const label = versionMenuButton.querySelector('span');
+    if (label) label.textContent = (currentCatalog?.versions || []).find(item => item.id === currentActive?.versionId)?.name || currentActive?.versionId || '';
+    tree.querySelectorAll('[data-version-toggle]').forEach(toggle => toggle.addEventListener('click', () => {
+      const node = toggle.closest('[data-version-node]');
+      const items = node?.querySelector(':scope > .resume-version-tree-children');
+      if (!items || !node) return;
+      const expanded = items.hidden;
+      items.hidden = !expanded;
+      toggle.setAttribute('aria-expanded', String(expanded));
+      toggle.setAttribute('aria-label', `${t(locale, expanded ? 'version.collapse' : 'version.expand')} ${node.querySelector('.resume-version-tree-name')?.textContent || ''}`);
+      toggle.querySelector('span').textContent = expanded ? '▾' : '▸';
+      const versionId = node.dataset.versionNode;
+      if (expanded) { expandedIds.add(versionId); collapsedIds.delete(versionId); }
+      else { collapsedIds.add(versionId); expandedIds.delete(versionId); }
     }));
-  });
-  versionMenu.querySelectorAll('[data-version-action]').forEach(button => button.addEventListener('click', async event => {
+    tree.querySelectorAll('.resume-version-tree-item').forEach(item => item.addEventListener('click', async () => {
+      if (item.dataset.suppressSelect === 'true') { delete item.dataset.suppressSelect; return; }
+      closeVersionMenu();
+      try {
+        await onVersionChange?.({ versionId: item.dataset.versionId });
+      } catch (error) {
+        setVersionStatus(error.message || String(error));
+        versionMenu.hidden = false;
+        versionMenuButton.setAttribute('aria-expanded', 'true');
+      }
+    }));
+    versionMenu.querySelectorAll('.resume-version-tree, .resume-version-tree .resume-version-tree-children').forEach(list => {
+      sortableInstances.push(Sortable.create(list, {
+        group: { name: 'resume-version-tree', pull: true, put: true },
+        draggable: '>.resume-version-tree-node',
+        handle: '.resume-version-tree-item',
+        animation: 160,
+        easing: 'cubic-bezier(.2,.8,.2,1)',
+        fallbackOnBody: true,
+        fallbackTolerance: 5,
+        swapThreshold: 0.65,
+        emptyInsertThreshold: 12,
+        ghostClass: 'resume-version-sortable-ghost',
+        chosenClass: 'resume-version-sortable-chosen',
+        dragClass: 'resume-version-sortable-drag',
+        onMove(event) {
+          const sourceId = dragState?.sourceId;
+          const targetNode = event.to.closest('[data-version-node]') || event.related?.closest?.('[data-version-node]');
+          if (sourceId && targetNode && (targetNode.dataset.versionNode === sourceId || isDescendant(currentCatalog, targetNode.dataset.versionNode, sourceId))) return false;
+          return true;
+        },
+        onStart(event) {
+          const item = event.item.querySelector('.resume-version-tree-item');
+          dragState = { sourceId: event.item.dataset.versionNode, item };
+          if (item) item.dataset.suppressSelect = 'true';
+          document.body.classList.add('resume-version-dragging');
+        },
+        async onEnd(event) {
+          const state = dragState;
+          dragState = null;
+          document.body.classList.remove('resume-version-dragging');
+          const item = state?.item;
+          const target = state ? findMoveTarget(event) : null;
+          if (item) window.setTimeout(() => { delete item.dataset.suppressSelect; }, 0);
+          if (!state || !target || state.sourceId === target.targetId) return;
+          try {
+            await onVersionMove?.(state.sourceId, target.targetId, target.placement);
+          } catch (error) {
+            setVersionStatus(error.message || String(error));
+            bindVersionTree();
+          }
+        },
+      }));
+    });
+    tree.querySelectorAll('[data-version-action]').forEach(button => button.addEventListener('click', handleVersionAction));
+    createIcons({ icons: APP_ICONS, root: versionMenu });
+  }
+  async function handleVersionAction(event) {
     event.stopPropagation();
+    const button = event.currentTarget;
     const action = button.dataset.versionAction;
     const versionId = button.dataset.versionId;
-    const version = (catalog?.versions || []).find(item => item.id === versionId);
+    const version = (currentCatalog?.versions || []).find(item => item.id === versionId);
     if (action === 'new-root') openVersionDialog({ mode: 'new-root' });
     else if (action === 'new') openVersionDialog({ mode: 'new', parentId: versionId });
-    else if (action === 'copy' && version) openVersionDialog({ mode: 'copy', sourceVersionId: versionId, parentId: versionId, initialName: t(locale, 'version.copyName', { name: version.name }) });
+    else if (action === 'copy' && version) openVersionDialog({ mode: 'copy', sourceVersionId: versionId, parentId: version.parentId, initialName: t(locale, 'version.copyName', { name: version.name }) });
     else if (action === 'rename' && version) openVersionDialog({ mode: 'rename', sourceVersionId: versionId, initialName: version.name });
     else if (action === 'delete' && version && window.confirm(t(locale, 'version.deleteConfirm', { name: version.name }))) {
       try { await onVersionDelete?.(versionId); } catch (error) { setVersionStatus(t(locale, 'version.deleteFailed', { message: error.message || String(error) })); }
     }
-  }));
+  }
+  versionMenu.querySelector('[data-version-action="new-root"]')?.addEventListener('click', handleVersionAction);
+  bindVersionTree();
+  function setCatalog(nextCatalog, nextActive) {
+    currentCatalog = nextCatalog;
+    currentActive = nextActive;
+    bindVersionTree();
+  }
   versionDialogForm.addEventListener('submit', async event => {
     event.preventDefault();
     if (!versionDialogState) return;
@@ -529,6 +635,11 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   compactToggle.addEventListener('change', () => applyCompactLayout(compactToggle.checked));
   smartLayoutToggle.addEventListener('change', () => applySmartLayout(smartLayoutToggle.checked));
   photoToggle.addEventListener('change', () => applyShowPhoto(photoToggle.checked));
+  titleStyleSelect.addEventListener('change', () => {
+    applyTitleStyle(titleStyleSelect.value);
+    setStoredTitleStyle(titleStyleSelect.value);
+    schedulePageSeparatorRefresh();
+  });
   editModeToggle.addEventListener('change', () => onEditModeChange?.(editModeToggle.checked));
   spacingButton.addEventListener('click', () => {
     const open = drawer.classList.contains('is-open');
@@ -555,15 +666,18 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     spacingValues = {};
     setStoredSpacing(spacingValues);
     applySpacing({});
+    titleStyleSelect.value = 'theme';
+    applyTitleStyle('theme');
+    setStoredTitleStyle('theme');
     spacingSliders.forEach(slider => { slider.value = SPACING_DEFAULTS[slider.dataset.key]; });
     updateSpacingOutputs();
-    refreshPageSeparators();
+    schedulePageSeparatorRefresh();
   });
   async function printResume() {
     closeImageDialog();
     await new Promise(resolve => requestAnimationFrame(resolve));
     const previousTitle = document.title;
-    document.title = exportFileName(catalog, activeVersion);
+    document.title = exportFileName(currentCatalog, currentActive);
     try {
       await withForcedPageSeparators(async () => {
         await new Promise(resolve => requestAnimationFrame(resolve));
@@ -582,7 +696,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     imageDialogStatus.textContent = t(locale, 'export.working');
     imageDialogStatus.hidden = false;
     try {
-      const fileName = exportFileName(catalog, activeVersion);
+      const fileName = exportFileName(currentCatalog, currentActive);
       if (exportType.value === 'pdf') {
         if (isTauriShell()) await exportResumePdf({ fileName });
         else await printResume();
@@ -622,6 +736,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   createIcons({ icons: APP_ICONS });
   updateVisibility(getToolbarVisibility());
   return {
+    setCatalog,
     destroy: () => {
       toolbarResizeObserver?.disconnect();
       if (toolbarOffsetFrame !== null) cancelAnimationFrame(toolbarOffsetFrame);

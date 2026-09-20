@@ -2,6 +2,7 @@ import './style.css';
 import { renderResume } from './renderer.js';
 import { initResumeEditor } from './resume-editor.js';
 import { createResumeStore } from './version-store.js';
+import { catalogStamp } from './version-catalog.js';
 import { getInitialAppLocale, getSupportedAppLocales, i18nReady, setAppLocale } from './app-i18n.js';
 import { getStoredPageSeparators, setPageSeparators, initPageSeparatorResizeListener, getStoredCompactMode, applyCompactModeClass, getStoredShowPhoto, applyShowPhotoClass, COMPACT_PAGE_MARGIN_MM } from './page-separator-mode.js';
 import { initPreviewEdit, focusPreviewPath } from './preview-edit.js';
@@ -48,6 +49,7 @@ function applySpacing(spacing) {
     else if (key === 'resume-page-margin' || key === 'resume-canvas-padding-x') cssValue = `${value}mm`;
     else cssValue = `${value}px`;
     document.documentElement.style.setProperty(`--${key}`, cssValue);
+    if (key === 'resume-text-font-size') document.documentElement.style.setProperty('--text-font-size', cssValue);
   });
 }
 
@@ -60,6 +62,7 @@ if (getStoredShowPhoto()) applyShowPhotoClass(true);
 let activeVersion = { versionId: initialVersion.versionId };
 let activeResumeData = initialVersion.data;
 let lastPersistedData = JSON.stringify(activeResumeData);
+let lastCatalogStamp = catalogStamp(resumeStore.getCatalog(), activeVersion.versionId);
 let activeExampleData = getExampleData(activeVersion.versionId, activeResumeData);
 let activeLocale = getInitialAppLocale();
 applySpacing(activeResumeData?.style?.spacing);
@@ -102,6 +105,7 @@ function createEditor(wasOpen = false) {
     onSave: async data => {
       await resumeStore.saveVersion(activeVersion.versionId, data);
       lastPersistedData = JSON.stringify(data);
+      lastCatalogStamp = resumeStore.catalogStamp(activeVersion.versionId);
     },
   });
   if (wasOpen) editorController.setOpen(true);
@@ -130,64 +134,57 @@ function createPanel() {
   if (editorController?.isOpen()) window.dispatchEvent(new CustomEvent('resume-editor-toggle', { detail: { open: true } }));
 }
 
-async function changeVersion(nextActive) {
-  if (nextActive.versionId === activeVersion.versionId) return;
-  const wasOpen = editorController?.isOpen();
-  const result = await resumeStore.setActive(nextActive.versionId);
-  activeVersion = { versionId: result.versionId };
-  activeResumeData = result.data;
-  lastPersistedData = JSON.stringify(activeResumeData);
-  activeExampleData = getExampleData(activeVersion.versionId, activeResumeData);
-  editorController?.destroy();
-  panelController?.destroy();
-  setTheme(activeResumeData.theme || DEFAULT_THEME);
-  renderApp(activeResumeData, { forceRecapture: true });
-  createEditor(wasOpen);
-  createPanel();
+function syncActiveVersion({ versionId, data, catalog }) {
+  activeVersion = { versionId };
+  if (data) {
+    activeResumeData = data;
+    lastPersistedData = JSON.stringify(activeResumeData);
+    activeExampleData = getExampleData(versionId, activeResumeData);
+    setTheme(activeResumeData.theme || DEFAULT_THEME);
+    renderApp(activeResumeData, { forceRecapture: true });
+    editorController?.setData(activeResumeData, { exampleData: activeExampleData, force: true });
+  }
+  lastCatalogStamp = catalogStamp(catalog || resumeStore.getCatalog(), versionId);
+  panelController?.setCatalog(catalog || resumeStore.getCatalog(), activeVersion);
 }
 
-async function reloadAfterVersionMutation(versionId, wasOpen) {
-  const result = await resumeStore.setActive(versionId);
-  activeVersion = { versionId: result.versionId };
-  activeResumeData = result.data;
-  lastPersistedData = JSON.stringify(activeResumeData);
-  activeExampleData = getExampleData(activeVersion.versionId, activeResumeData);
-  editorController?.destroy();
-  panelController?.destroy();
-  setTheme(activeResumeData.theme || DEFAULT_THEME);
-  renderApp(activeResumeData, { forceRecapture: true });
-  createEditor(wasOpen);
-  createPanel();
+async function changeVersion(nextActive) {
+  if (nextActive.versionId === activeVersion.versionId) return;
+  const result = await resumeStore.setActive(nextActive.versionId);
+  syncActiveVersion({ versionId: result.versionId, data: result.data });
 }
 
 async function createVersion({ name, parentId = null }) {
-  const wasOpen = editorController?.isOpen();
   const result = await resumeStore.createVersion({ name, parentId });
-  await reloadAfterVersionMutation(result.versionId, wasOpen);
+  await resumeStore.setActive(result.versionId);
+  syncActiveVersion({ versionId: result.versionId, data: result.data });
 }
 
 async function copyVersion({ name, sourceVersionId, parentId = null }) {
-  const wasOpen = editorController?.isOpen();
   const result = await resumeStore.createVersion({ name, parentId, copyFromVersionId: sourceVersionId });
-  await reloadAfterVersionMutation(result.versionId, wasOpen);
+  await resumeStore.setActive(result.versionId);
+  syncActiveVersion({ versionId: result.versionId, data: result.data });
 }
 
 async function renameVersion({ versionId, name }) {
-  await resumeStore.renameVersion(versionId, name);
-  panelController?.destroy();
-  createPanel();
+  const catalog = await resumeStore.renameVersion(versionId, name);
+  panelController?.setCatalog(catalog, activeVersion);
+  lastCatalogStamp = catalogStamp(catalog, activeVersion.versionId);
 }
 
 async function deleteVersion(versionId) {
-  const wasOpen = editorController?.isOpen();
   const result = await resumeStore.deleteVersion(versionId);
-  await reloadAfterVersionMutation(result.versionId, wasOpen);
+  if (result.switched) syncActiveVersion({ versionId: result.versionId, data: result.data, catalog: result.catalog });
+  else {
+    lastCatalogStamp = catalogStamp(result.catalog, activeVersion.versionId);
+    panelController?.setCatalog(result.catalog, activeVersion);
+  }
 }
 
 async function moveVersion(versionId, targetId, placement) {
-  await resumeStore.moveVersion(versionId, targetId, placement);
-  panelController?.destroy();
-  createPanel();
+  const catalog = await resumeStore.moveVersion(versionId, targetId, placement);
+  lastCatalogStamp = catalogStamp(catalog, activeVersion.versionId);
+  panelController?.setCatalog(catalog, activeVersion);
 }
 
 async function changeLocale(locale) {
@@ -216,6 +213,7 @@ initPreviewEdit({
   onSave: async data => {
     await resumeStore.saveVersion(activeVersion.versionId, data);
     lastPersistedData = JSON.stringify(data);
+    lastCatalogStamp = resumeStore.catalogStamp(activeVersion.versionId);
   },
   getLocale: () => activeLocale,
 });
@@ -236,8 +234,19 @@ if (import.meta.env.DEV && import.meta.hot) {
 }
 
 if (import.meta.env.DEV) {
+  let pollBusy = false;
   window.setInterval(async () => {
+    if (pollBusy || document.hidden) return;
+    pollBusy = true;
     try {
+      const catalog = await resumeStore.refreshCatalog();
+      const stamp = catalogStamp(catalog, activeVersion.versionId);
+      if (stamp === lastCatalogStamp) return;
+      if (catalog.activeVersionId !== activeVersion.versionId) {
+        await changeVersion({ versionId: catalog.activeVersionId });
+        return;
+      }
+      lastCatalogStamp = stamp;
       const externalData = await resumeStore.getVersion(activeVersion.versionId);
       const serialized = JSON.stringify(externalData);
       if (serialized === lastPersistedData) return;
@@ -250,6 +259,8 @@ if (import.meta.env.DEV) {
       activeResumeData = externalData;
       editorController?.setData(externalData);
       renderApp(externalData, { forceRecapture: true });
+      panelController?.setCatalog(catalog, activeVersion);
     } catch { /* 外部文件暂时不可读时保留当前预览 */ }
-  }, 1500);
+    finally { pollBusy = false; }
+  }, 2500);
 }

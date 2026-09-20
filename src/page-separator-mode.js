@@ -33,6 +33,8 @@ let originalNodes = null;
 let showPageSeparators = false;
 let resizeHandler = null;
 let fontRefreshQueued = false;
+let sharedMeasurer = null;
+let refreshTimer = null;
 
 function mmToPx(mm) {
   // 标准 96 DPI：1 inch = 25.4mm = 96px
@@ -355,7 +357,7 @@ function splitIntoRows(naturalNodes) {
   naturalNodes.forEach(node => {
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     if (node.classList.contains('resume-header')) {
-      rows.push(createRow('header', node.cloneNode(true)));
+      rows.push(createRow('header', node.cloneNode(true), moduleScaleStyle(node)));
     } else if (node.classList.contains('resume-section')) {
       rows.push(...extractSectionRows(node));
     } else {
@@ -377,25 +379,30 @@ function splitIntoRows(naturalNodes) {
  * 在完整 A4 页框中测量候选行。只有最后一行的实际下缘仍位于纸张底部
  * 安全边距之上时，该候选页才允许继续容纳内容。
  */
-function createPageContentMeasurer() {
+function getPageContentMeasurer() {
+  if (sharedMeasurer?.measurer.isConnected) return sharedMeasurer;
   const measurer = document.createElement('div');
   measurer.className = 'page-separator-measurer';
-
   const page = document.createElement('div');
   page.className = 'page-separator-page';
-
   const content = document.createElement('div');
   content.className = 'page-separator-page-content';
   page.appendChild(content);
   measurer.appendChild(page);
   document.body.appendChild(measurer);
+  sharedMeasurer = { measurer, page, content };
+  return sharedMeasurer;
+}
 
-  return { measurer, page, content };
+function releasePageContentMeasurer() {
+  sharedMeasurer?.measurer.remove();
+  sharedMeasurer = null;
 }
 
 function measureCandidatePage(rows) {
-  const { measurer, page, content } = createPageContentMeasurer();
-  rows.forEach(row => content.appendChild(row.cloneNode(true)));
+  const { page, content } = getPageContentMeasurer();
+  rows.forEach(row => content.appendChild(row));
+  void page.offsetHeight;
 
   const pageBounds = page.getBoundingClientRect();
   const contentBounds = content.getBoundingClientRect();
@@ -405,8 +412,8 @@ function measureCandidatePage(rows) {
     : contentBounds.top;
   const lowerSafeBoundary = pageBounds.bottom - mmToPx(getPageMarginMm());
   const contentHeight = content.scrollHeight;
+  rows.forEach(row => row.remove());
 
-  document.body.removeChild(measurer);
   return {
     contentHeight,
     finalVisibleEdge,
@@ -514,6 +521,7 @@ function updatePageSeparatorScale() {
  * 渲染分页分隔线预览。
  */
 function renderSeparatedPages(app, naturalNodes) {
+  try {
   const rows = splitIntoRows(naturalNodes);
   const pages = distributeRowsIntoPages(rows);
 
@@ -546,7 +554,7 @@ function renderSeparatedPages(app, naturalNodes) {
 
     const content = document.createElement('div');
     content.className = 'page-separator-page-content';
-    pageRows.forEach(row => content.appendChild(row.cloneNode(true)));
+    pageRows.forEach(row => content.appendChild(row));
 
     const pageNumber = document.createElement('span');
     pageNumber.className = 'page-separator-page-number';
@@ -572,6 +580,9 @@ function renderSeparatedPages(app, naturalNodes) {
   }
 
   updatePageSeparatorScale();
+  } finally {
+    releasePageContentMeasurer();
+  }
 }
 
 function refreshAfterFontsAreReady() {
@@ -653,10 +664,17 @@ export function refreshPageSeparators() {
   if (!showPageSeparators) return;
   const app = document.getElementById('app');
   if (!app) return;
-  // 从当前保存的自然流副本重新捕获
   originalNodes = cloneResumeNodes(app);
   if (!originalNodes || originalNodes.length === 0) return;
   renderSeparatedPages(app, originalNodes);
+}
+
+export function schedulePageSeparatorRefresh(delay = 90) {
+  window.clearTimeout(refreshTimer);
+  refreshTimer = window.setTimeout(() => {
+    refreshTimer = null;
+    refreshPageSeparators();
+  }, delay);
 }
 
 function nextFrame() {

@@ -29,7 +29,7 @@ function cloneNaturalResumeContent(app) {
     captureContent.appendChild(node.cloneNode(true));
   });
   captureContent.querySelectorAll('.page-separator-page-number').forEach(node => node.remove());
-  captureContent.querySelectorAll('.resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls').forEach(node => node.remove());
+  captureContent.querySelectorAll('.resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls, .resume-format-menu').forEach(node => node.remove());
   captureContent.querySelectorAll('[contenteditable]').forEach(node => node.removeAttribute('contenteditable'));
   return captureContent;
 }

@@ -67,7 +67,7 @@ function buildA4PdfFromJpegs(pages) {
   return new Blob([concatBytes(chunks)], { type: 'application/pdf' });
 }
 
-async function canvasToJpeg(canvas, quality = 0.92) {
+async function canvasToJpeg(canvas, quality = 0.94) {
   const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
   if (!blob) throw new Error('图片编码失败');
   return {
@@ -77,35 +77,49 @@ async function canvasToJpeg(canvas, quality = 0.92) {
   };
 }
 
+function preparePageClone(page, width, height) {
+  const clone = page.cloneNode(true);
+  clone.style.transform = 'none';
+  clone.style.position = 'relative';
+  clone.style.left = '0';
+  clone.style.top = '0';
+  clone.style.right = 'auto';
+  clone.style.bottom = 'auto';
+  clone.style.margin = '0';
+  clone.style.width = `${width}px`;
+  clone.style.height = `${height}px`;
+  clone.style.overflow = 'hidden';
+  clone.style.boxShadow = 'none';
+  clone.style.border = '0';
+  clone.style.borderRadius = '0';
+  clone.style.background = '#ffffff';
+  clone.querySelectorAll('.page-separator-page-number').forEach(node => node.remove());
+  clone.querySelectorAll('.resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls, .resume-format-menu').forEach(node => node.remove());
+  clone.querySelectorAll('[contenteditable]').forEach(node => node.removeAttribute('contenteditable'));
+  return clone;
+}
+
 export async function exportResumePdf({ fileName = 'resume' } = {}) {
   return withForcedPageSeparators(async () => {
     const pages = [...document.querySelectorAll('#app .page-separator-page')];
     if (!pages.length) throw new Error('找不到分页内容');
+    const width = Math.max(1, Math.round(pages[0].offsetWidth));
+    const height = Math.max(1, Math.round(pages[0].offsetHeight));
     const jpegPages = [];
-    for (const page of pages) {
-      const width = Math.max(1, Math.ceil(page.offsetWidth));
-      const height = Math.max(1, Math.ceil(page.offsetHeight));
-      const stage = await withCaptureStage(width, async root => {
-        const clone = page.cloneNode(true);
-        clone.style.transform = 'none';
-        clone.style.position = 'relative';
-        clone.style.left = '0';
-        clone.style.top = '0';
-        clone.style.right = 'auto';
-        clone.style.bottom = 'auto';
-        clone.style.margin = '0';
-        clone.style.width = `${width}px`;
-        clone.style.height = `${height}px`;
-        clone.style.overflow = 'hidden';
-        clone.querySelectorAll('.page-separator-page-number').forEach(node => node.remove());
-        clone.querySelectorAll('.resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls').forEach(node => node.remove());
-        root.appendChild(clone);
-      });
-      try {
-        jpegPages.push(await canvasToJpeg(await captureElement(stage, { scale: 2 })));
-      } finally {
-        stage.remove();
+    const stage = await withCaptureStage(width, async root => {
+      root.style.background = '#ffffff';
+    }, { heightPx: height });
+    try {
+      for (const page of pages) {
+        stage.replaceChildren(preparePageClone(page, width, height));
+        jpegPages.push(await canvasToJpeg(await captureElement(stage, {
+          scale: 2,
+          clip: true,
+          backgroundColor: '#ffffff',
+        })));
       }
+    } finally {
+      stage.remove();
     }
     return saveBlob(buildA4PdfFromJpegs(jpegPages), `${fileName}.pdf`, [{ name: 'PDF', extensions: ['pdf'] }]);
   });
