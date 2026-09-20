@@ -30,7 +30,11 @@
 
 ## Desktop
 
-本地开发除了浏览器，也可以用 Tauri 桌面窗口打开同一套 Vite 应用：
+本地开发除了浏览器，也可以用 Tauri 桌面窗口打开同一套 Vite 应用（开发服务器带 HMR）：
+
+Windows 可直接双击仓库根目录的 `tauri-dev.bat`。它会检查 Node / Rust、必要时安装依赖并初始化 `data/`，然后启动带热更新的桌面预览。
+
+也可以手动执行：
 
 ```bash
 npm ci

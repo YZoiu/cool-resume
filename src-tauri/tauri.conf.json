@@ -5,7 +5,7 @@
   "identifier": "cool.but.resume",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:60090",
+    "devUrl": "http://127.0.0.1:60090",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },

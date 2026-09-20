@@ -12,7 +12,8 @@ This is a Vite-powered, client-side resume generator. Application behavior lives
 npm ci          # install the lockfile-defined dependency set
 npm run init         # create ignored local data/ from the example data
 npm run dev          # start Vite development server (normally port 60090)
-npm run tauri:dev    # start the desktop shell (Vite + Tauri WebView)
+npm run tauri:dev    # start the desktop shell (Vite + Tauri WebView, with HMR)
+tauri-dev.bat        # Windows one-click Tauri preview (same as tauri:dev, with env checks)
 npm run build        # create output/resume.html (with dist/ as an intermediate)
 npm run tauri:build  # package the desktop app
 npm run pdf          # build, then export an A4 PDF in output/; requires Google Chrome on macOS

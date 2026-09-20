@@ -178,13 +178,19 @@ function resumeSourceSyncPlugin() {
 
 const tauriHost = process.env.TAURI_DEV_HOST;
 const runningInTauri = Boolean(tauriHost) || process.env.TAURI_ENV_PLATFORM != null;
+// 桌面 WebView 固定走 IPv4，避免 Windows 上 localhost → ::1 导致 HMR WebSocket 连不上。
+const tauriDevHost = tauriHost || (runningInTauri ? '127.0.0.1' : false);
 
 export default defineConfig({
   clearScreen: false,
   envPrefix: ['VITE_', 'TAURI_ENV_'],
   plugins: [
     resumeSourceSyncPlugin(),
-    viteSingleFile(),
+    // singlefile 会把 base 改成 ./ ，开发时会打断 Vite HMR；只在生产打包时启用。
+    {
+      ...viteSingleFile(),
+      apply: 'build',
+    },
     {
       name: 'inject-resume-theme',
       transformIndexHtml: {
@@ -229,9 +235,14 @@ export default defineConfig({
   server: {
     port: 60090,
     strictPort: runningInTauri,
-    host: tauriHost || false,
-    hmr: tauriHost
-      ? { protocol: 'ws', host: tauriHost, port: 60091 }
+    host: tauriDevHost,
+    hmr: runningInTauri
+      ? {
+          protocol: 'ws',
+          host: tauriHost || '127.0.0.1',
+          port: tauriHost ? 60091 : 60090,
+          overlay: true,
+        }
       : undefined,
     watch: {
       ignored: ['**/src-tauri/**'],
