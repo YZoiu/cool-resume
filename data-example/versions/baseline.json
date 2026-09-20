@@ -13,7 +13,7 @@
       "resume-list-gap": 3
     }
   },
-  "order": ["header", "basicInfo", "summary", "work", "projects", "skills", "education"],
+  "order": ["header", "summary", "skills", "work", "projects"],
   "basicInfo": {"items": [
     {"label": "求职意向", "value": "Java 后端工程师"},
     {"label": "现居城市", "value": "杭州"},

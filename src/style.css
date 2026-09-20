@@ -18,14 +18,19 @@
   --resume-section-gap: 12px;
   --resume-entry-gap: 16px;
   --resume-list-gap: 3px;
-  --resume-header-gap: 16px;
-  --resume-header-bottom-gap: 6px;
+  --resume-header-gap: 8px;
+  --resume-header-bottom-gap: 2px;
   --resume-section-title-gap: 8px;
+  --resume-section-rule-gap: 8px;
   --resume-entry-header-gap: 3px;
   --resume-list-top-gap: 4px;
   --resume-keyword-gap: 6px;
   --resume-skill-gap: 6px;
-  --resume-basic-info-gap: 6px;
+  --resume-basic-info-gap: 2px;
+  --resume-project-separator: 16px;
+  --resume-project-inner-divider: 14px;
+  --resume-photo-width: 25mm;
+  --resume-photo-height: 35mm;
   --resume-footer-gap: 32px;
 
   --font-sans:
@@ -61,37 +66,102 @@ body {
   padding: var(--resume-body-padding-y) var(--resume-page-margin);
 }
 
-/* ===== Header：姓名 + 岗位/年限 ===== */
+/* ===== Header：姓名置顶，基本信息与教育背景整合，证件照贴右上角 ===== */
 .resume-header {
+  position: relative;
   margin-bottom: var(--resume-header-gap);
   border-bottom: var(--theme-header-border-width) solid var(--theme-header-border);
   padding-bottom: var(--theme-header-padding-bottom);
 }
-.resume-header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: var(--resume-header-bottom-gap);
+html.resume-show-photo .resume-header {
+  min-height: var(--resume-photo-height);
+  padding-right: calc(var(--resume-photo-width) + 8px);
 }
+.resume-header-body { min-width: 0; }
 .resume-name {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--theme-header-name-color);
   letter-spacing: -0.5px;
+  line-height: 1.15;
+  margin-bottom: 0;
 }
-.resume-title-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--theme-header-title-color);
-}
+.resume-title-line,
 .resume-title-separator {
-  font-size: 12px;
-  opacity: 0.7;
+  display: none !important;
+}
+.resume-photo {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--resume-photo-width);
+  height: var(--resume-photo-height);
+  overflow: hidden;
+  border: 1px solid var(--theme-border);
+  background: #f8fafc;
+  cursor: pointer;
+}
+.resume-photo:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.resume-photo-resize {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px 0 0 0;
+  background: #2563eb;
+  box-shadow: 0 0 0 1px #fff;
+  cursor: nwse-resize;
+}
+html.resume-preview-edit-mode.resume-show-photo .resume-photo-resize { display: block; }
+html.resume-show-photo .resume-photo { display: block; }
+.resume-photo-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.resume-photo-placeholder {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 6px;
+  color: var(--theme-text-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: center;
+  line-height: 1.35;
+}
+.resume-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: 2px 16px;
+  margin-top: 4px;
+}
+.resume-profile-basic,
+.resume-profile-education {
+  display: grid;
+  align-content: start;
+  gap: var(--resume-basic-info-gap);
+  min-width: 0;
+}
+.resume-profile-education-entry {
+  display: grid;
+  gap: var(--resume-basic-info-gap);
+}
+.resume-profile-education-entry + .resume-profile-education-entry {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--theme-border);
 }
 
 /* ===== Links ===== */
@@ -105,6 +175,10 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 
 /* ===== Section ===== */
 .resume-section { margin-top: var(--resume-section-gap); }
+.resume-section + .resume-section {
+  padding-top: var(--resume-section-rule-gap);
+  border-top: 1px solid var(--theme-border);
+}
 .resume-section-title {
   display: flex;
   align-items: center;
@@ -135,7 +209,10 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 }
 .resume-basic-info-item {
   display: flex;
-  gap: 8px;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13.5px;
+  line-height: 1.35;
 }
 .resume-basic-info-label {
   color: var(--theme-text-soft);
@@ -148,7 +225,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 
 /* ===== Entry ===== */
 .resume-entry { margin-bottom: var(--resume-entry-gap); }
-.resume-entry:last-child { margin-bottom: 0; }
+.resume-entry:last-of-type { margin-bottom: 0; }
 .resume-entry-header {
   display: flex;
   justify-content: space-between;
@@ -271,19 +348,11 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   border-radius: 2px;
 }
 
-/* ===== Project divider ===== */
-.resume-project-divider {
-  border: none;
-  border-top: 1.5px solid var(--theme-border);
-  margin: 14px 0 10px 0;
-  opacity: 0.8;
-}
-
 /* ===== Project divider (inside a project) ===== */
 .resume-project-divider {
   border: none;
   height: 1px;
-  margin: 14px 0 10px 0;
+  margin: var(--resume-project-inner-divider) 0 calc(var(--resume-project-inner-divider) * 0.7);
   background: linear-gradient(
     to right,
     transparent,
@@ -296,8 +365,8 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 /* ===== Project entry separator (between projects) ===== */
 .resume-project-entry {
   position: relative;
-  padding-bottom: 16px;
-  margin-bottom: 16px;
+  padding-bottom: var(--resume-project-separator);
+  margin-bottom: var(--resume-project-separator);
 }
 .resume-project-entry::after {
   content: '';
@@ -309,11 +378,11 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   background: var(--theme-border);
   opacity: 0.85;
 }
-.resume-project-entry:last-child {
+.resume-project-entry:last-of-type {
   padding-bottom: 0;
   margin-bottom: 0;
 }
-.resume-project-entry:last-child::after {
+.resume-project-entry:last-of-type::after {
   display: none;
 }
 
@@ -325,7 +394,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   column-gap: 14px;
   margin-bottom: var(--resume-skill-gap);
 }
-.resume-skill-item:last-child { margin-bottom: 0; }
+.resume-skill-item:last-of-type { margin-bottom: 0; }
 .resume-skill-name {
   font-weight: 600;
   color: var(--theme-text);
@@ -578,29 +647,15 @@ html.resume-compact-mode {
   --resume-header-gap: 8px;
   --resume-header-bottom-gap: 4px;
   --resume-section-title-gap: 5px;
+  --resume-section-rule-gap: 4px;
   --resume-entry-header-gap: 2px;
   --resume-list-top-gap: 2px;
   --resume-keyword-gap: 3px;
   --resume-skill-gap: 3px;
   --resume-basic-info-gap: 4px;
+  --resume-project-separator: 8px;
+  --resume-project-inner-divider: 8px;
   --resume-footer-gap: 16px;
-}
-
-html.resume-compact-mode .resume-project-divider {
-  margin: 8px 0 6px;
-}
-
-html.resume-compact-mode .resume-project-entry {
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-}
-
-html.resume-compact-mode .page-separator-row-project-separator {
-  height: 16px;
-}
-
-html.resume-compact-mode .page-separator-project-separator {
-  top: 8px;
 }
 
 html.resume-compact-mode .resume-summary-content ul,
@@ -618,6 +673,12 @@ html.resume-compact-mode .page-separator-row-bullet ul {
 
 .page-separator-row-section-title {
   margin-top: var(--resume-section-gap);
+  padding-top: var(--resume-section-rule-gap);
+  border-top: 1px solid var(--theme-border);
+}
+.page-separator-row-header + .page-separator-row-section-title {
+  border-top: none;
+  padding-top: 0;
 }
 
 .page-separator-row-entry-header,
@@ -625,15 +686,15 @@ html.resume-compact-mode .page-separator-row-bullet ul {
   margin-bottom: var(--resume-list-top-gap, 4px);
 }
 
-/* 对齐自然流中项目条目的 16px + 分隔线 + 16px 间距。 */
+/* 对齐自然流中项目条目的分割线间距。 */
 .page-separator-row-project-separator {
-  height: 32px;
+  height: calc(var(--resume-project-separator) * 2);
   position: relative;
 }
 
 .page-separator-project-separator {
   position: absolute;
-  top: 16px;
+  top: var(--resume-project-separator);
   left: 0;
   right: 0;
   height: 1px;
@@ -683,8 +744,79 @@ html.resume-compact-mode .page-separator-row-bullet ul {
 @media (max-width: 640px) {
   /* 分页分隔线使用固定纸张并整体缩放；移动端规则不能改写页内排版。 */
   html:not(.page-separator-mode) body { padding: 24px 20px; }
-  html:not(.page-separator-mode) .resume-header-top { flex-direction: column; gap: 4px; }
   html:not(.page-separator-mode) .resume-title-line { width: 100%; }
+  html:not(.page-separator-mode) .resume-profile,
   html:not(.page-separator-mode) .resume-basic-info { grid-template-columns: 1fr; }
   html:not(.page-separator-mode) .resume-skill-item { grid-template-columns: 1fr; row-gap: 2px; }
+}
+
+/* ===== 预览编辑模式 ===== */
+[data-edit-item] { position: relative; }
+.resume-edit-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d6d3d1;
+  border-radius: 6px;
+  background: #fff;
+  color: #57534e;
+  font: 600 11px var(--font-sans);
+  cursor: pointer;
+}
+html.resume-preview-edit-mode .resume-edit-btn { display: inline-flex; }
+.resume-edit-add {
+  margin-top: 8px;
+  height: 26px;
+  padding: 0 10px;
+  border-style: dashed;
+  color: #78716c;
+}
+.resume-edit-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  line-height: 1;
+  color: #a8a29e;
+}
+.resume-photo-remove {
+  top: 3px;
+  right: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.92);
+}
+html.resume-preview-edit-mode .resume-entry,
+html.resume-preview-edit-mode .resume-skill-item,
+html.resume-preview-edit-mode .resume-basic-info-item,
+html.resume-preview-edit-mode .resume-profile-education-entry,
+html.resume-preview-edit-mode .resume-summary-content li,
+html.resume-preview-edit-mode .resume-entry-summary li {
+  padding-right: 22px;
+}
+html.resume-preview-edit-mode .resume-edit-text {
+  min-width: 1em;
+  min-height: 1em;
+  border-radius: 2px;
+  outline: 1px dashed transparent;
+  outline-offset: 1px;
+}
+html.resume-preview-edit-mode .resume-edit-text:hover,
+html.resume-preview-edit-mode .resume-edit-text:focus {
+  background: rgba(37, 99, 235, 0.05);
+  outline-color: #93c5fd;
+}
+html.resume-photo-resizing, html.resume-photo-resizing * { cursor: nwse-resize !important; user-select: none !important; }
+@media print {
+  .resume-edit-btn, .resume-photo-resize { display: none !important; }
+  .resume-edit-text { outline: none !important; background: transparent !important; }
+  .resume-photo:not(:has(img)) { display: none !important; }
+  html.resume-show-photo .resume-header:not(:has(.resume-photo-image)) {
+    padding-right: 0;
+    min-height: 0;
+  }
 }

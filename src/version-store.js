@@ -6,7 +6,7 @@ const DB_NAME = 'myresume2-resume-versions';
 const DB_VERSION = 2;
 const CATALOG_KEY = 'catalog';
 const EMPTY_RESUME = {
-  name: '', title: '', experience: '',
+  name: '', title: '', experience: '', photo: '',
   basicInfo: { items: [] }, work: [], projects: [], skills: [], education: [],
 };
 

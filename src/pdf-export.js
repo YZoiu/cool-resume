@@ -1,10 +1,6 @@
-import { getStoredPageSeparators, setPageSeparators } from './page-separator-mode.js';
+import { withForcedPageSeparators } from './page-separator-mode.js';
 import { saveBlob } from './file-save.js';
 import { captureElement, withCaptureStage } from './capture-element.js';
-
-function nextFrame() {
-  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-}
 
 function concatBytes(chunks) {
   const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -82,13 +78,7 @@ async function canvasToJpeg(canvas, quality = 0.92) {
 }
 
 export async function exportResumePdf({ fileName = 'resume' } = {}) {
-  const hadPageSeparators = getStoredPageSeparators();
-  if (!hadPageSeparators) {
-    setPageSeparators(true);
-    await nextFrame();
-  }
-
-  try {
+  return withForcedPageSeparators(async () => {
     const pages = [...document.querySelectorAll('#app .page-separator-page')];
     if (!pages.length) throw new Error('找不到分页内容');
     const jpegPages = [];
@@ -108,6 +98,7 @@ export async function exportResumePdf({ fileName = 'resume' } = {}) {
         clone.style.height = `${height}px`;
         clone.style.overflow = 'hidden';
         clone.querySelectorAll('.page-separator-page-number').forEach(node => node.remove());
+        clone.querySelectorAll('.resume-edit-btn, .resume-photo-resize').forEach(node => node.remove());
         root.appendChild(clone);
       });
       try {
@@ -117,10 +108,5 @@ export async function exportResumePdf({ fileName = 'resume' } = {}) {
       }
     }
     return saveBlob(buildA4PdfFromJpegs(jpegPages), `${fileName}.pdf`, [{ name: 'PDF', extensions: ['pdf'] }]);
-  } finally {
-    if (!hadPageSeparators) {
-      setPageSeparators(false, true);
-      await nextFrame();
-    }
-  }
+  });
 }

@@ -3,7 +3,8 @@ import { renderResume } from './renderer.js';
 import { initResumeEditor } from './resume-editor.js';
 import { createResumeStore } from './version-store.js';
 import { getInitialAppLocale, getSupportedAppLocales, i18nReady, setAppLocale } from './app-i18n.js';
-import { getStoredPageSeparators, setPageSeparators, initPageSeparatorResizeListener, getStoredCompactMode, applyCompactModeClass, COMPACT_PAGE_MARGIN_MM } from './page-separator-mode.js';
+import { getStoredPageSeparators, setPageSeparators, initPageSeparatorResizeListener, getStoredCompactMode, applyCompactModeClass, getStoredShowPhoto, applyShowPhotoClass, COMPACT_PAGE_MARGIN_MM } from './page-separator-mode.js';
+import { initPreviewEdit, focusPreviewPath } from './preview-edit.js';
 import { inject } from '@vercel/analytics';
 
 const STORAGE_KEY = 'myresume2-theme';
@@ -54,6 +55,7 @@ if (getStoredCompactMode()) {
   applyCompactModeClass(true);
   document.documentElement.style.setProperty('--resume-page-margin', `${COMPACT_PAGE_MARGIN_MM}mm`);
 }
+if (getStoredShowPhoto()) applyShowPhotoClass(true);
 
 let activeVersion = { versionId: initialVersion.versionId };
 let activeResumeData = initialVersion.data;
@@ -62,12 +64,24 @@ let activeExampleData = getExampleData(activeVersion.versionId, activeResumeData
 let activeLocale = getInitialAppLocale();
 applySpacing(activeResumeData?.style?.spacing);
 
+function isPreviewEditMode() {
+  return document.documentElement.classList.contains('resume-preview-edit-mode');
+}
+
 function renderApp(data, { forceRecapture = false, renderResumeFn = renderResume } = {}) {
   applySpacing(data?.style?.spacing);
   document.documentElement.lang = activeLocale;
   document.title = `${data.name} - ${data.title}`;
-  document.getElementById('app').innerHTML = renderResumeFn(data, { locale: activeLocale });
+  document.getElementById('app').innerHTML = renderResumeFn(data, {
+    locale: activeLocale,
+    editMode: isPreviewEditMode(),
+  });
   setPageSeparators(getStoredPageSeparators(), forceRecapture);
+}
+
+function setPreviewEditMode(enabled) {
+  document.documentElement.classList.toggle('resume-preview-edit-mode', !!enabled);
+  renderApp(activeResumeData, { forceRecapture: true });
 }
 
 renderApp(activeResumeData, { forceRecapture: true });
@@ -100,6 +114,7 @@ function createPanel() {
     defaultSpacing: activeResumeData?.style?.spacing || {},
     onThemeChange: setTheme,
     onEditorToggle: () => editorController.toggle(),
+    onEditModeChange: setPreviewEditMode,
     locale: activeLocale,
     locales: getSupportedAppLocales(),
     onLocaleChange: changeLocale,
@@ -188,6 +203,22 @@ async function changeLocale(locale) {
 }
 
 createEditor();
+initPreviewEdit({
+  getData: () => activeResumeData,
+  applyData: (data, { rerender = false, focusPath = null } = {}) => {
+    activeResumeData = data;
+    editorController?.setData(data);
+    if (rerender) {
+      renderApp(data, { forceRecapture: true });
+      if (focusPath) requestAnimationFrame(() => focusPreviewPath(focusPath));
+    }
+  },
+  onSave: async data => {
+    await resumeStore.saveVersion(activeVersion.versionId, data);
+    lastPersistedData = JSON.stringify(data);
+  },
+  getLocale: () => activeLocale,
+});
 initPageSeparatorResizeListener();
 import('./dev-panel.js').then(module => {
   initDevPanel = module.initDevPanel;
@@ -198,9 +229,9 @@ const runningInTauri = Boolean(globalThis.__TAURI_INTERNALS__ || globalThis.__TA
 if (!runningInTauri) inject();
 
 if (import.meta.env.DEV && import.meta.hot) {
-  import.meta.hot.accept(['./renderer.js'], async () => {
-    const { renderResume: newRenderResume } = await import('./renderer.js');
-    renderApp(activeResumeData, { forceRecapture: true, renderResumeFn: newRenderResume });
+  import.meta.hot.accept('./renderer.js', newModule => {
+    if (!newModule) return;
+    renderApp(activeResumeData, { forceRecapture: true, renderResumeFn: newModule.renderResume });
   });
 }
 

@@ -24,6 +24,7 @@ export const COMPACT_PAGE_MARGIN_MM = 6;
 const STORAGE_KEY = 'myresume2-page-separators';
 const STORAGE_KEY_COMPACT = 'myresume2-compact-mode';
 const STORAGE_KEY_SMART = 'myresume2-smart-layout';
+const STORAGE_KEY_PHOTO = 'myresume2-show-photo';
 const SMART_MIN_LEFTOVER_PX = 6;
 const SMART_MAX_FILL_RATIO = 0.22;
 const SMART_SPARSE_FILL_RATIO = 0.58;
@@ -76,6 +77,26 @@ export function setStoredSmartLayout(enabled) {
 
 export function applySmartLayoutClass(enabled) {
   document.documentElement.classList.toggle('resume-smart-layout', !!enabled);
+}
+
+export function getStoredShowPhoto() {
+  try {
+    return localStorage.getItem(STORAGE_KEY_PHOTO) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setStoredShowPhoto(enabled) {
+  try {
+    localStorage.setItem(STORAGE_KEY_PHOTO, enabled ? '1' : '0');
+  } catch {
+    // ignore
+  }
+}
+
+export function applyShowPhotoClass(enabled) {
+  document.documentElement.classList.toggle('resume-show-photo', !!enabled);
 }
 
 function getSmartGapWeight(row) {
@@ -182,6 +203,13 @@ export function getPageMarginMm() {
   return DEFAULT_PAGE_MARGIN_MM;
 }
 
+function stripEditChrome(node) {
+  if (node.nodeType !== Node.ELEMENT_NODE) return node;
+  node.querySelectorAll('.resume-edit-btn, .resume-photo-resize').forEach(button => button.remove());
+  node.querySelectorAll('[contenteditable]').forEach(element => element.removeAttribute('contenteditable'));
+  return node;
+}
+
 /**
  * 克隆 #app 下当前渲染的简历节点（排除分页分隔线自身产生的元素）。
  */
@@ -189,7 +217,7 @@ function cloneResumeNodes(app) {
   // 若已显示分页分隔线，原始内容被收纳在 .page-separator-original-content 中
   const originalContainer = app.querySelector('.page-separator-original-content');
   if (originalContainer) {
-    return Array.from(originalContainer.childNodes).map(node => node.cloneNode(true));
+    return Array.from(originalContainer.childNodes).map(node => stripEditChrome(node.cloneNode(true)));
   }
   return Array.from(app.childNodes)
     .filter(
@@ -199,7 +227,7 @@ function cloneResumeNodes(app) {
           (node.classList.contains('page-separator-page-wrapper') ||
            node.classList.contains('page-separator-original-content')))
     )
-    .map(node => node.cloneNode(true));
+    .map(node => stripEditChrome(node.cloneNode(true)));
 }
 
 /**
@@ -281,6 +309,7 @@ function extractSectionRows(sectionNode) {
   if (!content) return rows;
 
   Array.from(content.children).forEach(child => {
+    if (child.classList.contains('resume-edit-btn')) return;
     if (child.classList.contains('resume-entry')) {
       if (child.classList.contains('resume-project-entry')) {
         if (hasProjectEntry) rows.push(createProjectSeparatorRow());
@@ -571,8 +600,17 @@ function restoreNaturalFlow(app, forceRecapture) {
   if (forceRecapture || !originalNodes) originalNodes = cloneResumeNodes(app);
 }
 
-export function setPageSeparators(enabled, forceRecapture = false) {
-  showPageSeparators = !!enabled;
+export function setPageSeparators(enabled, forceRecapture = false, { persist = true } = {}) {
+  if (persist) {
+    try {
+      localStorage.setItem(STORAGE_KEY, enabled ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }
+
+  const visual = !!enabled && !document.documentElement.classList.contains('resume-preview-edit-mode');
+  showPageSeparators = visual;
   const app = document.getElementById('app');
   if (!app) return;
 
@@ -595,12 +633,6 @@ export function setPageSeparators(enabled, forceRecapture = false) {
     applySmartLayoutClass(false);
     restoreNaturalFlow(app, forceRecapture);
   }
-
-  try {
-    localStorage.setItem(STORAGE_KEY, showPageSeparators ? '1' : '0');
-  } catch {
-    // ignore
-  }
 }
 
 /**
@@ -616,9 +648,29 @@ export function refreshPageSeparators() {
   renderSeparatedPages(app, originalNodes);
 }
 
+function nextFrame() {
+  return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
 /**
- * 初始化窗口 resize 监听，动态调整分页分隔线缩放。
+ * 导出 / 打印前强制进入分页预览。编辑模式会暂时关掉，避免分页 DOM 不存在。
  */
+export async function withForcedPageSeparators(task) {
+  const hadEditMode = document.documentElement.classList.contains('resume-preview-edit-mode');
+  const hadSeparators = getStoredPageSeparators();
+  if (hadEditMode) document.documentElement.classList.remove('resume-preview-edit-mode');
+  if (!showPageSeparators) {
+    setPageSeparators(true, true, { persist: false });
+    await nextFrame();
+  }
+  try {
+    return await task();
+  } finally {
+    if (hadEditMode) document.documentElement.classList.add('resume-preview-edit-mode');
+    setPageSeparators(hadSeparators, true, { persist: false });
+  }
+}
+
 export function initPageSeparatorResizeListener() {
   if (resizeHandler) return;
   resizeHandler = () => {

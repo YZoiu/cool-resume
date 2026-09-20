@@ -2,7 +2,8 @@ import { t } from './app-i18n.js';
 
 /*
  * renderer.js — 将版本 JSON 渲染为简历 HTML
- * 每个 section 对应一个 renderXxx 函数，结构与当前 resume.html 保持一致。
+ * 每个 section 对应一个 renderXxx 函数。姓名、基本信息和教育背景合并为页头，
+ * 证件照贴在右上角；编辑模式通过 data-edit-path 把预览映射回 JSON。
  */
 
 const ICONS = {
@@ -25,6 +26,33 @@ const ICONS = {
   award: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></svg>`,
 };
 
+const INTEGRATED_SECTIONS = new Set(['basicInfo', 'education']);
+export const DEFAULT_PHOTO_WIDTH_MM = 25;
+export const DEFAULT_PHOTO_HEIGHT_MM = 35;
+export const PHOTO_WIDTH_MIN_MM = 16;
+export const PHOTO_WIDTH_MAX_MM = 36;
+
+let ctx = { locale: 'zh-CN', editMode: false };
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function getPhotoSize(data) {
+  const aspect = DEFAULT_PHOTO_HEIGHT_MM / DEFAULT_PHOTO_WIDTH_MM;
+  const rawWidth = Number(data?.photoWidth);
+  const rawHeight = Number(data?.photoHeight);
+  const width = clamp(
+    Number.isFinite(rawWidth) && rawWidth > 0 ? rawWidth : DEFAULT_PHOTO_WIDTH_MM,
+    PHOTO_WIDTH_MIN_MM,
+    PHOTO_WIDTH_MAX_MM,
+  );
+  const height = Number.isFinite(rawHeight) && rawHeight > 0
+    ? clamp(rawHeight, PHOTO_WIDTH_MIN_MM * aspect, PHOTO_WIDTH_MAX_MM * aspect)
+    : width * aspect;
+  return { width, height };
+}
+
 function icon(name) {
   return ICONS[name] || '';
 }
@@ -41,38 +69,118 @@ function escapeHtml(text) {
 function renderInlineMarkdown(text) {
   if (text == null) return '';
   let html = escapeHtml(String(text));
-  // 加粗 **text**
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // 斜体 *text*（在加粗之后处理，避免与 ** 冲突）
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // 高亮 ==text==
   html = html.replace(/==(.+?)==/g, '<mark>$1</mark>');
   return html;
 }
 
-function renderBullets(items) {
-  if (!items || items.length === 0) return '';
-  return `<ul>${items.map(item => `<li><p>${renderInlineMarkdown(item)}</p></li>`).join('')}</ul>`;
+function editable(path, value, kind = 'text') {
+  const rendered = kind === 'markdown' && !ctx.editMode
+    ? renderInlineMarkdown(value)
+    : escapeHtml(value ?? '');
+  const ce = ctx.editMode ? ' contenteditable="true" spellcheck="false"' : '';
+  return `<span class="resume-edit-text"${ce} data-edit-path="${escapeHtml(path)}" data-edit-kind="${kind}">${rendered}</span>`;
+}
+
+function addBtn(path, label) {
+  if (!ctx.editMode) return '';
+  return `<button type="button" class="resume-edit-btn resume-edit-add" data-edit-action="add" data-edit-path="${escapeHtml(path)}">${escapeHtml(label)}</button>`;
+}
+
+function removeBtn(path) {
+  if (!ctx.editMode) return '';
+  return `<button type="button" class="resume-edit-btn resume-edit-remove" data-edit-action="remove" data-edit-path="${escapeHtml(path)}" aria-label="${escapeHtml(t(ctx.locale, 'edit.remove'))}" title="${escapeHtml(t(ctx.locale, 'edit.remove'))}">×</button>`;
+}
+
+function renderBullets(items, pathPrefix) {
+  const list = Array.isArray(items) ? items : [];
+  if (list.length === 0 && !ctx.editMode) return '';
+  const lis = list.map((item, index) => {
+    const path = `${pathPrefix}.${index}`;
+    const body = ctx.editMode ? escapeHtml(item ?? '') : renderInlineMarkdown(item);
+    const ce = ctx.editMode ? ' contenteditable="true" spellcheck="false"' : '';
+    return `<li data-edit-item="${escapeHtml(path)}"><p class="resume-edit-text"${ce} data-edit-path="${escapeHtml(path)}" data-edit-kind="markdown">${body}</p>${removeBtn(path)}</li>`;
+  }).join('');
+  return `<ul>${lis}</ul>${addBtn(pathPrefix, t(ctx.locale, 'edit.addBullet'))}`;
+}
+
+function renderPhoto(data) {
+  const src = typeof data.photo === 'string' ? data.photo.trim() : '';
+  const { width, height } = getPhotoSize(data);
+  const img = src
+    ? `<img class="resume-photo-image" src="${escapeHtml(src)}" alt="${escapeHtml(data.name || '')}">`
+    : `<span class="resume-photo-placeholder">${escapeHtml(t(ctx.locale, 'photo.placeholder'))}</span>`;
+  const remove = ctx.editMode && src
+    ? `<button type="button" class="resume-edit-btn resume-photo-remove" data-edit-action="remove-photo" title="${escapeHtml(t(ctx.locale, 'photo.remove'))}">×</button>`
+    : '';
+  const resize = ctx.editMode
+    ? `<span class="resume-photo-resize" data-edit-action="resize-photo" title="${escapeHtml(t(ctx.locale, 'photo.resize'))}"></span>`
+    : '';
+  return `<div class="resume-photo" data-edit-action="photo" role="button" tabindex="0" title="${escapeHtml(t(ctx.locale, src ? 'photo.change' : 'photo.placeholder'))}" style="width:${width}mm;height:${height}mm">${img}${remove}${resize}</div>`;
+}
+
+function renderLabeledItem(label, valueHtml, extraClass = '') {
+  return `
+    <div class="resume-basic-info-item${extraClass ? ` ${extraClass}` : ''}">
+      <span class="resume-basic-info-label">${label}</span>
+      <span class="resume-basic-info-value">${valueHtml}</span>
+    </div>
+  `;
+}
+
+function renderProfile(data) {
+  const basicItems = data.basicInfo?.items || [];
+  const education = Array.isArray(data.education) ? data.education : [];
+  if (!basicItems.length && !education.length && !ctx.editMode) return '';
+
+  const basic = basicItems.map((item, index) => `
+    <div class="resume-basic-info-item" data-edit-item="basicInfo.items.${index}">
+      ${removeBtn(`basicInfo.items.${index}`)}
+      <span class="resume-basic-info-label">${editable(`basicInfo.items.${index}.label`, item.label)}</span>
+      <span class="resume-basic-info-value">${editable(`basicInfo.items.${index}.value`, item.value)}</span>
+    </div>
+  `).join('');
+
+  const edu = education.map((entry, index) => `
+    <div class="resume-profile-education-entry" data-edit-item="education.${index}">
+      ${removeBtn(`education.${index}`)}
+      ${renderLabeledItem(escapeHtml(t(ctx.locale, 'profile.institution')), editable(`education.${index}.institution`, entry.institution))}
+      ${renderLabeledItem(escapeHtml(t(ctx.locale, 'profile.degree')), editable(`education.${index}.degree`, entry.degree))}
+      ${renderLabeledItem(escapeHtml(t(ctx.locale, 'profile.date')), editable(`education.${index}.date`, entry.date))}
+    </div>
+  `).join('');
+
+  return `
+    <div class="resume-profile">
+      <div class="resume-profile-basic">
+        ${basic}
+        ${addBtn('basicInfo.items', t(ctx.locale, 'edit.addBasic'))}
+      </div>
+      <div class="resume-profile-education">
+        ${edu}
+        ${addBtn('education', t(ctx.locale, 'edit.addEducation'))}
+      </div>
+    </div>
+  `;
 }
 
 export function renderHeader(data) {
+  const photo = getPhotoSize(data);
   return `
-    <header class="resume-header">
-      <div class="resume-header-top">
-        <h1 class="resume-name">${escapeHtml(data.name)}</h1>
-        <div class="resume-title-line">
-          <span class="resume-headline">${escapeHtml(data.title)}</span>
-          <span class="resume-title-separator">·</span>
-          <span class="resume-years">${escapeHtml(data.experience)}</span>
-        </div>
+    <header class="resume-header" style="--resume-photo-width:${photo.width}mm;--resume-photo-height:${photo.height}mm">
+      ${renderPhoto(data)}
+      <div class="resume-header-body">
+        <h1 class="resume-name">${editable('name', data.name)}</h1>
+        ${renderProfile(data)}
       </div>
     </header>
   `;
 }
 
-function renderSection(title, iconName, content) {
+function renderSection(title, iconName, content, sectionKey) {
   return `
-    <section class="resume-section">
+    <section class="resume-section" data-section-key="${escapeHtml(sectionKey)}">
       <h2 class="resume-section-title"><i class="resume-section-icon">${icon(iconName)}</i>${escapeHtml(title)}</h2>
       <div class="resume-section-content">${content}</div>
     </section>
@@ -80,7 +188,7 @@ function renderSection(title, iconName, content) {
 }
 
 function renderBasicInfo(basicInfo) {
-  const items = basicInfo.items.map(item => `
+  const items = (basicInfo?.items || []).map(item => `
     <div class="resume-basic-info-item">
       <span class="resume-basic-info-label">${escapeHtml(item.label)}</span>
       <span class="resume-basic-info-value">${escapeHtml(item.value)}</span>
@@ -90,67 +198,74 @@ function renderBasicInfo(basicInfo) {
 }
 
 function renderSummary(summary) {
-  if (!summary || !summary.items || summary.items.length === 0) return '';
-  return `<div class="resume-summary-content">${renderBullets(summary.items)}</div>`;
+  if (!summary || !summary.items || summary.items.length === 0) {
+    return ctx.editMode
+      ? `<div class="resume-summary-content">${renderBullets([], 'summary.items')}</div>`
+      : '';
+  }
+  return `<div class="resume-summary-content">${renderBullets(summary.items, 'summary.items')}</div>`;
 }
 
 function renderWork(work) {
-  const entries = work.map(entry => `
-    <div class="resume-entry">
+  const entries = (work || []).map((entry, index) => `
+    <div class="resume-entry" data-edit-item="work.${index}">
+      ${removeBtn(`work.${index}`)}
       <div class="resume-entry-header">
         <div class="resume-entry-title">
-          ${escapeHtml(entry.company)}
+          ${editable(`work.${index}.company`, entry.company)}
           <span class="resume-entry-title-separator">·</span>
-          ${escapeHtml(entry.position)}
+          ${editable(`work.${index}.position`, entry.position)}
         </div>
-        <div class="resume-entry-date">${escapeHtml(entry.date)}</div>
+        <div class="resume-entry-date">${editable(`work.${index}.date`, entry.date)}</div>
       </div>
-      <div class="resume-entry-summary">${renderBullets(entry.summary)}</div>
+      <div class="resume-entry-summary">${renderBullets(entry.summary, `work.${index}.summary`)}</div>
     </div>
   `).join('');
-  return entries;
+  return `${entries}${addBtn('work', t(ctx.locale, 'edit.addWork'))}`;
 }
 
-function renderProjectMeta(entry, locale) {
+function renderProjectMeta(entry, index) {
   const fields = [
-    { key: 'background', label: t(locale, 'project.background') },
-    { key: 'techStack', label: t(locale, 'project.techStack') },
-    { key: 'role', label: t(locale, 'project.role') },
+    { key: 'background', label: t(ctx.locale, 'project.background') },
+    { key: 'techStack', label: t(ctx.locale, 'project.techStack') },
+    { key: 'role', label: t(ctx.locale, 'project.role') },
   ];
   const lines = fields
-    .filter(({ key }) => entry[key])
+    .filter(({ key }) => ctx.editMode || entry[key])
     .map(({ key, label }) => `
       <div class="resume-project-meta">
         <span class="resume-project-meta-label">${escapeHtml(label)}</span>
-        <span class="resume-project-meta-value">${renderInlineMarkdown(entry[key])}</span>
+        <span class="resume-project-meta-value">${editable(`projects.${index}.${key}`, entry[key], 'markdown')}</span>
       </div>
     `);
   return lines.length ? `<div class="resume-project-meta-list">${lines.join('')}</div>` : '';
 }
 
-function renderProjects(projects, locale) {
-  const entries = projects.map(entry => `
-    <div class="resume-entry resume-project-entry">
+function renderProjects(projects) {
+  const entries = (projects || []).map((entry, index) => `
+    <div class="resume-entry resume-project-entry" data-edit-item="projects.${index}">
+      ${removeBtn(`projects.${index}`)}
       <div class="resume-entry-header">
-        <div class="resume-entry-title">${escapeHtml(entry.name)}</div>
-        <div class="resume-entry-date">${escapeHtml(entry.date)}</div>
+        <div class="resume-entry-title">${editable(`projects.${index}.name`, entry.name)}</div>
+        <div class="resume-entry-date">${editable(`projects.${index}.date`, entry.date)}</div>
       </div>
-      ${renderProjectMeta(entry, locale)}
+      ${renderProjectMeta(entry, index)}
       <hr class="resume-project-divider">
-      <div class="resume-entry-summary">${renderBullets(entry.summary)}</div>
+      <div class="resume-entry-summary">${renderBullets(entry.summary, `projects.${index}.summary`)}</div>
     </div>
   `).join('');
-  return entries;
+  return `${entries}${addBtn('projects', t(ctx.locale, 'edit.addProject'))}`;
 }
 
 function renderSkills(skills) {
-  const items = skills.map(skill => `
-    <div class="resume-skill-item">
-      <div class="resume-skill-name">${escapeHtml(skill.category)}</div>
-      <div class="resume-skill-keywords">${renderSkillKeywords(skill.keywords)}</div>
+  const items = (skills || []).map((skill, index) => `
+    <div class="resume-skill-item" data-edit-item="skills.${index}">
+      ${removeBtn(`skills.${index}`)}
+      <div class="resume-skill-name">${editable(`skills.${index}.category`, skill.category)}</div>
+      <div class="resume-skill-keywords">${ctx.editMode ? editable(`skills.${index}.keywords`, skill.keywords) : renderSkillKeywords(skill.keywords)}</div>
     </div>
   `).join('');
-  return items;
+  return `${items}${addBtn('skills', t(ctx.locale, 'edit.addSkill'))}`;
 }
 
 function renderSkillKeywords(keywords) {
@@ -170,7 +285,7 @@ function renderSkillKeywords(keywords) {
 }
 
 function renderEducation(education) {
-  const entries = education.map(entry => `
+  const entries = (education || []).map(entry => `
     <div class="resume-entry">
       <div class="resume-entry-header">
         <div>
@@ -193,14 +308,16 @@ const SECTIONS = {
   education: { key: 'education', icon: 'graduationCap', render: renderEducation },
 };
 
-const DEFAULT_ORDER = ['header', 'basicInfo', 'summary', 'skills', 'work', 'projects', 'education'];
+const DEFAULT_ORDER = ['header', 'summary', 'skills', 'work', 'projects'];
 
-export function renderResume(data, { locale = 'zh-CN' } = {}) {
+export function renderResume(data, { locale = 'zh-CN', editMode = false } = {}) {
+  ctx = { locale, editMode: !!editMode };
   const order = data.order || DEFAULT_ORDER;
   return order.map(key => {
     if (key === 'header') return renderHeader(data);
+    if (INTEGRATED_SECTIONS.has(key)) return '';
     const section = SECTIONS[key];
     if (!section) return '';
-    return renderSection(t(locale, `section.${section.key}`), section.icon, section.render(data[key], locale));
+    return renderSection(t(locale, `section.${section.key}`), section.icon, section.render(data[key]), section.key);
   }).join('');
 }

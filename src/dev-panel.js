@@ -1,6 +1,6 @@
 import './dev-panel.css';
 import { t } from './app-i18n.js';
-import { getStoredPageSeparators, setPageSeparators, refreshPageSeparators, getStoredCompactMode, setStoredCompactMode, applyCompactModeClass, getStoredSmartLayout, setStoredSmartLayout, applySmartLayoutClass, COMPACT_PAGE_MARGIN_MM, DEFAULT_PAGE_MARGIN_MM } from './page-separator-mode.js';
+import { getStoredPageSeparators, setPageSeparators, refreshPageSeparators, getStoredCompactMode, setStoredCompactMode, applyCompactModeClass, getStoredSmartLayout, setStoredSmartLayout, applySmartLayoutClass, getStoredShowPhoto, setStoredShowPhoto, applyShowPhotoClass, withForcedPageSeparators, COMPACT_PAGE_MARGIN_MM, DEFAULT_PAGE_MARGIN_MM } from './page-separator-mode.js';
 import { exportResumeImage } from './image-export.js';
 import { exportResumePdf } from './pdf-export.js';
 import { isTauriShell, SaveCancelledError } from './file-save.js';
@@ -19,10 +19,17 @@ const THEMES = [
 const SPACING_CONTROLS = [
   { key: 'resume-page-margin', label: '页边距', en: 'Page margin', min: 4, max: 16, step: 1, unit: 'mm', fallback: DEFAULT_PAGE_MARGIN_MM },
   { key: 'resume-line-height', label: '行高', en: 'Line height', min: 1.05, max: 1.8, step: 0.05, unit: '' },
-  { key: 'resume-section-gap', label: '章节间距', en: 'Section gap', min: 4, max: 30, step: 1, unit: 'px' },
-  { key: 'resume-entry-gap', label: '条目间距', en: 'Entry gap', min: 4, max: 24, step: 1, unit: 'px' },
-  { key: 'resume-list-gap', label: '列表间距', en: 'List gap', min: 0, max: 8, step: 1, unit: 'px' },
   { key: 'resume-body-padding-y', label: '顶部边距', en: 'Top padding', min: 0, max: 40, step: 1, unit: 'px' },
+  { key: 'resume-header-gap', label: '姓名区块', en: 'Name block', min: 0, max: 28, step: 1, unit: 'px' },
+  { key: 'resume-section-gap', label: '章节间距', en: 'Section gap', min: 0, max: 30, step: 1, unit: 'px' },
+  { key: 'resume-section-rule-gap', label: '章节分割线', en: 'Section rule', min: 0, max: 24, step: 1, unit: 'px' },
+  { key: 'resume-section-title-gap', label: '标题与内容', en: 'Title gap', min: 0, max: 16, step: 1, unit: 'px' },
+  { key: 'resume-entry-gap', label: '条目间距', en: 'Entry gap', min: 0, max: 24, step: 1, unit: 'px' },
+  { key: 'resume-project-separator', label: '项目分割线', en: 'Project rule', min: 0, max: 28, step: 1, unit: 'px' },
+  { key: 'resume-project-inner-divider', label: '项目内分割线', en: 'Inner rule', min: 0, max: 24, step: 1, unit: 'px' },
+  { key: 'resume-skill-gap', label: '技能行距', en: 'Skill gap', min: 0, max: 16, step: 1, unit: 'px' },
+  { key: 'resume-list-gap', label: '列表间距', en: 'List gap', min: 0, max: 8, step: 1, unit: 'px' },
+  { key: 'resume-basic-info-gap', label: '信息行距', en: 'Info gap', min: 0, max: 14, step: 1, unit: 'px' },
 ];
 const STORAGE_KEY_THEME = 'myresume2-theme';
 const STORAGE_KEY_SPACING = 'myresume2-spacing';
@@ -133,7 +140,7 @@ function setToolbarVisibility(visible) {
 }
 
 /** 顶部编辑栏：承接主题、排版、分页分隔线和导出控制。 */
-export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThemeChange, onEditorToggle, locale = 'zh-CN', locales = [], onLocaleChange, catalog, activeVersion, onVersionChange, onVersionCreate, onVersionCopy, onVersionRename, onVersionDelete, onVersionMove }) {
+export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThemeChange, onEditorToggle, onEditModeChange, locale = 'zh-CN', locales = [], onLocaleChange, catalog, activeVersion, onVersionChange, onVersionCreate, onVersionCopy, onVersionRename, onVersionDelete, onVersionMove }) {
   const root = document.documentElement;
   let toolbarOffsetFrame = null;
   let toolbarResizeObserver = null;
@@ -170,6 +177,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
         <button type="button" class="resume-editor-toolbar-button" data-action="spacing" aria-expanded="false" title="${t(locale, 'app.spacingTitle')}"><i data-lucide="sliders-horizontal"></i><span>${t(locale, 'app.spacing')}</span></button>
         <button type="button" class="resume-editor-toolbar-button" data-action="reset-theme" title="${t(locale, 'app.reset')}"><i data-lucide="rotate-ccw"></i><span>${t(locale, 'app.reset')}</span></button>
         <button type="button" class="resume-editor-toolbar-button primary" data-action="export" title="${t(locale, 'export.title')}"><i data-lucide="file-down"></i><span>${t(locale, 'app.export')}</span></button>
+        <label class="resume-editor-toggle" title="${t(locale, 'app.editModeTitle')}"><i data-lucide="pencil"></i><span>${t(locale, 'app.editMode')}</span><input type="checkbox" class="resume-editor-edit-mode-toggle" /></label>
         <button type="button" class="resume-editor-toolbar-button quiet" data-action="hide" title="${t(locale, 'app.hide')}"><i data-lucide="eye-off"></i><span>${t(locale, 'app.hide')}</span></button>
         <a class="resume-editor-toolbar-repository" href="https://github.com/butfool/cool-resume" target="_blank" rel="noopener" aria-label="${t(locale, 'editor.repositoryAria')}" title="${t(locale, 'editor.repository')}"><i data-lucide="github"></i></a>
       </div>
@@ -180,6 +188,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
         <label class="resume-editor-layout-option" title="${t(locale, 'app.pageSeparatorsTitle')}"><span>${t(locale, 'app.pageSeparators')}</span><input type="checkbox" class="resume-editor-page-separator-toggle" /></label>
         <label class="resume-editor-layout-option" title="${t(locale, 'app.compactModeTitle')}"><span>${t(locale, 'app.compactMode')}</span><input type="checkbox" class="resume-editor-compact-toggle" /></label>
         <label class="resume-editor-layout-option" title="${t(locale, 'app.smartLayoutTitle')}"><span>${t(locale, 'app.smartLayout')}</span><input type="checkbox" class="resume-editor-smart-layout-toggle" /></label>
+        <label class="resume-editor-layout-option" title="${t(locale, 'app.showPhotoTitle')}"><span>${t(locale, 'app.showPhoto')}</span><input type="checkbox" class="resume-editor-photo-toggle" /></label>
       </div>
       <div class="resume-editor-spacing-grid">
         ${SPACING_CONTROLS.map(control => `<label class="resume-editor-spacing-item"><span>${locale === 'en-US' ? control.en : control.label}</span><output data-key="${control.key}"></output><input type="range" data-key="${control.key}" min="${control.min}" max="${control.max}" step="${control.step}" value="${SPACING_DEFAULTS[control.key]}" /></label>`).join('')}
@@ -240,6 +249,8 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   const pageSeparatorToggle = toolbar.querySelector('.resume-editor-page-separator-toggle');
   const compactToggle = toolbar.querySelector('.resume-editor-compact-toggle');
   const smartLayoutToggle = toolbar.querySelector('.resume-editor-smart-layout-toggle');
+  const photoToggle = toolbar.querySelector('.resume-editor-photo-toggle');
+  const editModeToggle = toolbar.querySelector('.resume-editor-edit-mode-toggle');
   const drawer = toolbar.querySelector('.resume-editor-toolbar-drawer');
   const spacingButton = toolbar.querySelector('[data-action="spacing"]');
   const spacingSliders = toolbar.querySelectorAll('.resume-editor-spacing-item input');
@@ -247,6 +258,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   let spacingValues = getStoredSpacing();
   let compactEnabled = getStoredCompactMode();
   let smartLayoutEnabled = getStoredSmartLayout();
+  let showPhotoEnabled = getStoredShowPhoto();
 
   function openImageDialog() {
     imageDialogStatus.hidden = true;
@@ -325,6 +337,13 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     }
     refreshPageSeparators();
   }
+  function applyShowPhoto(enabled) {
+    showPhotoEnabled = !!enabled;
+    photoToggle.checked = showPhotoEnabled;
+    applyShowPhotoClass(showPhotoEnabled);
+    setStoredShowPhoto(showPhotoEnabled);
+    refreshPageSeparators();
+  }
   function closeDrawer() {
     drawer.classList.remove('is-open');
     drawer.setAttribute('aria-hidden', 'true');
@@ -358,6 +377,9 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   compactToggle.checked = compactEnabled;
   smartLayoutToggle.checked = smartLayoutEnabled;
   applySmartLayoutClass(smartLayoutEnabled);
+  photoToggle.checked = showPhotoEnabled;
+  applyShowPhotoClass(showPhotoEnabled);
+  editModeToggle.checked = document.documentElement.classList.contains('resume-preview-edit-mode');
   refreshPageSeparators();
   spacingSliders.forEach(slider => {
     if (spacingValues[slider.dataset.key] !== undefined) slider.value = spacingValues[slider.dataset.key];
@@ -506,6 +528,8 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   pageSeparatorToggle.addEventListener('change', () => setPageSeparators(pageSeparatorToggle.checked));
   compactToggle.addEventListener('change', () => applyCompactLayout(compactToggle.checked));
   smartLayoutToggle.addEventListener('change', () => applySmartLayout(smartLayoutToggle.checked));
+  photoToggle.addEventListener('change', () => applyShowPhoto(photoToggle.checked));
+  editModeToggle.addEventListener('change', () => onEditModeChange?.(editModeToggle.checked));
   spacingButton.addEventListener('click', () => {
     const open = drawer.classList.contains('is-open');
     drawer.classList.toggle('is-open', !open);
@@ -537,12 +561,17 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   });
   async function printResume() {
     closeImageDialog();
-    // Let the dialog's hidden state reach the render tree before print captures it.
     await new Promise(resolve => requestAnimationFrame(resolve));
     const previousTitle = document.title;
     document.title = exportFileName(catalog, activeVersion);
-    window.addEventListener('afterprint', () => { document.title = previousTitle; }, { once: true });
-    window.print();
+    try {
+      await withForcedPageSeparators(async () => {
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        window.print();
+      });
+    } finally {
+      document.title = previousTitle;
+    }
   }
   exportType.addEventListener('change', () => { imageOptions.hidden = exportType.value !== 'image'; });
   toolbar.querySelector('[data-action="export"]').addEventListener('click', openImageDialog);
