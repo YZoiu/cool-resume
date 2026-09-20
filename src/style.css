@@ -8,7 +8,8 @@
 
 :root {
   --resume-canvas-width: 210mm;
-  --resume-canvas-padding-x: 14mm;
+  --resume-page-margin: 14mm;
+  --resume-canvas-padding-x: var(--resume-page-margin);
   --text-font-size: 13px;
 
   /* JSON 的 style.spacing 会在启动时覆盖这些安全默认值。 */
@@ -57,7 +58,7 @@ body {
   max-width: var(--resume-canvas-width);
   margin: 0 auto;
   /* 连续预览和分页页使用同一组水平边距，保证切换后不改变换行。 */
-  padding: var(--resume-body-padding-y) var(--resume-canvas-padding-x);
+  padding: var(--resume-body-padding-y) var(--resume-page-margin);
 }
 
 /* ===== Header：姓名 + 岗位/年限 ===== */
@@ -396,7 +397,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 
   body {
     max-width: none;
-    padding: 14mm;
+    padding: var(--resume-page-margin);
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -467,6 +468,7 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 
 /* ===== 分页分隔线预览 =====
    开关仅决定是否显示页面边界；PDF 始终使用 A4 页面。
+   页边距由 --resume-page-margin 控制（默认 14mm，紧凑模式 6mm）。
    - 每页为真实 A4 尺寸（210×297mm）的白色纸张
    - 屏幕背景变灰，纸张堆叠并带阴影
    - 按内容高度自动分页，并用 transform 缩放适配视口
@@ -532,7 +534,7 @@ body.page-separator-mode {
 .page-separator-page {
   width: var(--resume-canvas-width);
   height: var(--page-separator-page-height, 297mm);
-  padding: var(--resume-canvas-padding-x);
+  padding: var(--resume-page-margin);
   background: #ffffff;
   overflow: hidden;
   position: absolute;
@@ -557,8 +559,8 @@ body.page-separator-mode {
 
 .page-separator-page-number {
   position: absolute;
-  top: 4mm;
-  right: 14mm;
+  top: 3mm;
+  right: 3mm;
   font-size: 11px;
   line-height: 1;
   color: #6b7280;
@@ -568,6 +570,43 @@ body.page-separator-mode {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 999px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* 紧凑模式：把 A4 安全边距顶到接近纸边，并收紧滑条管不到的内部空隙。 */
+html.resume-compact-mode {
+  --resume-page-margin: 6mm;
+  --resume-header-gap: 8px;
+  --resume-header-bottom-gap: 4px;
+  --resume-section-title-gap: 5px;
+  --resume-entry-header-gap: 2px;
+  --resume-list-top-gap: 2px;
+  --resume-keyword-gap: 3px;
+  --resume-skill-gap: 3px;
+  --resume-basic-info-gap: 4px;
+  --resume-footer-gap: 16px;
+}
+
+html.resume-compact-mode .resume-project-divider {
+  margin: 8px 0 6px;
+}
+
+html.resume-compact-mode .resume-project-entry {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+html.resume-compact-mode .page-separator-row-project-separator {
+  height: 16px;
+}
+
+html.resume-compact-mode .page-separator-project-separator {
+  top: 8px;
+}
+
+html.resume-compact-mode .resume-summary-content ul,
+html.resume-compact-mode .resume-entry-summary ul,
+html.resume-compact-mode .page-separator-row-bullet ul {
+  padding-left: 16px;
 }
 
 /* ===== 分页行单位 =====

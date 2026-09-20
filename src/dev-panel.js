@@ -1,6 +1,6 @@
 import './dev-panel.css';
 import { t } from './app-i18n.js';
-import { getStoredPageSeparators, setPageSeparators, refreshPageSeparators } from './page-separator-mode.js';
+import { getStoredPageSeparators, setPageSeparators, refreshPageSeparators, getStoredCompactMode, setStoredCompactMode, applyCompactModeClass, getStoredSmartLayout, setStoredSmartLayout, applySmartLayoutClass, COMPACT_PAGE_MARGIN_MM, DEFAULT_PAGE_MARGIN_MM } from './page-separator-mode.js';
 import { exportResumeImage } from './image-export.js';
 import { exportResumePdf } from './pdf-export.js';
 import { isTauriShell, SaveCancelledError } from './file-save.js';
@@ -17,11 +17,12 @@ const THEMES = [
   { id: 'editorial', label: '酒红编辑风', en: 'Burgundy editorial' },
 ];
 const SPACING_CONTROLS = [
-  { key: 'resume-line-height', label: '行高', en: 'Line height', min: 1.3, max: 1.8, step: 0.05, unit: '' },
-  { key: 'resume-section-gap', label: '章节间距', en: 'Section gap', min: 12, max: 30, step: 1, unit: 'px' },
-  { key: 'resume-entry-gap', label: '条目间距', en: 'Entry gap', min: 8, max: 24, step: 1, unit: 'px' },
+  { key: 'resume-page-margin', label: '页边距', en: 'Page margin', min: 4, max: 16, step: 1, unit: 'mm', fallback: DEFAULT_PAGE_MARGIN_MM },
+  { key: 'resume-line-height', label: '行高', en: 'Line height', min: 1.05, max: 1.8, step: 0.05, unit: '' },
+  { key: 'resume-section-gap', label: '章节间距', en: 'Section gap', min: 4, max: 30, step: 1, unit: 'px' },
+  { key: 'resume-entry-gap', label: '条目间距', en: 'Entry gap', min: 4, max: 24, step: 1, unit: 'px' },
   { key: 'resume-list-gap', label: '列表间距', en: 'List gap', min: 0, max: 8, step: 1, unit: 'px' },
-  { key: 'resume-body-padding-y', label: '顶部边距', en: 'Top padding', min: 16, max: 40, step: 1, unit: 'px' },
+  { key: 'resume-body-padding-y', label: '顶部边距', en: 'Top padding', min: 0, max: 40, step: 1, unit: 'px' },
 ];
 const STORAGE_KEY_THEME = 'myresume2-theme';
 const STORAGE_KEY_SPACING = 'myresume2-spacing';
@@ -136,8 +137,10 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   const root = document.documentElement;
   let toolbarOffsetFrame = null;
   let toolbarResizeObserver = null;
-  SPACING_DEFAULTS = Object.fromEntries(SPACING_CONTROLS.map(({ key }) => {
+  SPACING_DEFAULTS = Object.fromEntries(SPACING_CONTROLS.map(control => {
+    const { key } = control;
     if (defaultSpacing[key] !== undefined) return [key, String(defaultSpacing[key])];
+    if (control.fallback !== undefined) return [key, String(control.fallback)];
     const fallback = getComputedStyle(root).getPropertyValue(`--${key}`).trim();
     return [key, fallback ? String(parseFloat(fallback)) : '0'];
   }));
@@ -173,7 +176,11 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     </div>
     <div class="resume-editor-toolbar-drawer" aria-hidden="true">
       <div class="resume-editor-toolbar-drawer-header"><strong><i data-lucide="sliders-horizontal"></i>${t(locale, 'app.spacingTitle')}</strong><span>${t(locale, 'app.spacingHint')}</span></div>
-      <label class="resume-editor-layout-option" title="${t(locale, 'app.pageSeparatorsTitle')}"><span>${t(locale, 'app.pageSeparators')}</span><input type="checkbox" class="resume-editor-page-separator-toggle" /></label>
+      <div class="resume-editor-layout-options">
+        <label class="resume-editor-layout-option" title="${t(locale, 'app.pageSeparatorsTitle')}"><span>${t(locale, 'app.pageSeparators')}</span><input type="checkbox" class="resume-editor-page-separator-toggle" /></label>
+        <label class="resume-editor-layout-option" title="${t(locale, 'app.compactModeTitle')}"><span>${t(locale, 'app.compactMode')}</span><input type="checkbox" class="resume-editor-compact-toggle" /></label>
+        <label class="resume-editor-layout-option" title="${t(locale, 'app.smartLayoutTitle')}"><span>${t(locale, 'app.smartLayout')}</span><input type="checkbox" class="resume-editor-smart-layout-toggle" /></label>
+      </div>
       <div class="resume-editor-spacing-grid">
         ${SPACING_CONTROLS.map(control => `<label class="resume-editor-spacing-item"><span>${locale === 'en-US' ? control.en : control.label}</span><output data-key="${control.key}"></output><input type="range" data-key="${control.key}" min="${control.min}" max="${control.max}" step="${control.step}" value="${SPACING_DEFAULTS[control.key]}" /></label>`).join('')}
       </div>
@@ -231,11 +238,15 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   const imageOptions = imageDialog.querySelector('[data-image-options]');
   const editorButton = toolbar.querySelector('[data-action="editor"]');
   const pageSeparatorToggle = toolbar.querySelector('.resume-editor-page-separator-toggle');
+  const compactToggle = toolbar.querySelector('.resume-editor-compact-toggle');
+  const smartLayoutToggle = toolbar.querySelector('.resume-editor-smart-layout-toggle');
   const drawer = toolbar.querySelector('.resume-editor-toolbar-drawer');
   const spacingButton = toolbar.querySelector('[data-action="spacing"]');
   const spacingSliders = toolbar.querySelectorAll('.resume-editor-spacing-item input');
   const spacingOutputs = toolbar.querySelectorAll('.resume-editor-spacing-item output');
   let spacingValues = getStoredSpacing();
+  let compactEnabled = getStoredCompactMode();
+  let smartLayoutEnabled = getStoredSmartLayout();
 
   function openImageDialog() {
     imageDialogStatus.hidden = true;
@@ -282,6 +293,38 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
       output.textContent = `${spacingValues[output.dataset.key] ?? SPACING_DEFAULTS[output.dataset.key]}${control.unit}`;
     });
   }
+  function syncSpacingSlider(key) {
+    const slider = toolbar.querySelector(`.resume-editor-spacing-item input[data-key="${key}"]`);
+    if (slider) slider.value = spacingValues[key] ?? SPACING_DEFAULTS[key];
+  }
+  function applyCompactLayout(enabled) {
+    compactEnabled = !!enabled;
+    compactToggle.checked = compactEnabled;
+    applyCompactModeClass(compactEnabled);
+    setStoredCompactMode(compactEnabled);
+    if (compactEnabled) {
+      spacingValues['resume-page-margin'] = String(COMPACT_PAGE_MARGIN_MM);
+    } else {
+      delete spacingValues['resume-page-margin'];
+    }
+    applySpacing(spacingValues);
+    setStoredSpacing(spacingValues);
+    syncSpacingSlider('resume-page-margin');
+    updateSpacingOutputs();
+    refreshPageSeparators();
+  }
+  function applySmartLayout(enabled) {
+    smartLayoutEnabled = !!enabled;
+    smartLayoutToggle.checked = smartLayoutEnabled;
+    applySmartLayoutClass(smartLayoutEnabled);
+    setStoredSmartLayout(smartLayoutEnabled);
+    if (smartLayoutEnabled && !getStoredPageSeparators()) {
+      pageSeparatorToggle.checked = true;
+      setPageSeparators(true);
+      return;
+    }
+    refreshPageSeparators();
+  }
   function closeDrawer() {
     drawer.classList.remove('is-open');
     drawer.setAttribute('aria-hidden', 'true');
@@ -307,7 +350,15 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     updateToolbarOffset();
   }
 
+  if (compactEnabled && spacingValues['resume-page-margin'] === undefined) {
+    spacingValues['resume-page-margin'] = String(COMPACT_PAGE_MARGIN_MM);
+  }
+  applyCompactModeClass(compactEnabled);
   applySpacing(spacingValues);
+  compactToggle.checked = compactEnabled;
+  smartLayoutToggle.checked = smartLayoutEnabled;
+  applySmartLayoutClass(smartLayoutEnabled);
+  refreshPageSeparators();
   spacingSliders.forEach(slider => {
     if (spacingValues[slider.dataset.key] !== undefined) slider.value = spacingValues[slider.dataset.key];
     slider.addEventListener('input', () => {
@@ -453,6 +504,8 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   window.addEventListener('resume-editor-toggle', handleEditorToggle);
   pageSeparatorToggle.checked = getStoredPageSeparators();
   pageSeparatorToggle.addEventListener('change', () => setPageSeparators(pageSeparatorToggle.checked));
+  compactToggle.addEventListener('change', () => applyCompactLayout(compactToggle.checked));
+  smartLayoutToggle.addEventListener('change', () => applySmartLayout(smartLayoutToggle.checked));
   spacingButton.addEventListener('click', () => {
     const open = drawer.classList.contains('is-open');
     drawer.classList.toggle('is-open', !open);
@@ -467,6 +520,14 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     onThemeChange(defaultTheme);
   });
   toolbar.querySelector('[data-action="reset-spacing"]').addEventListener('click', () => {
+    compactEnabled = false;
+    compactToggle.checked = false;
+    applyCompactModeClass(false);
+    setStoredCompactMode(false);
+    smartLayoutEnabled = false;
+    smartLayoutToggle.checked = false;
+    applySmartLayoutClass(false);
+    setStoredSmartLayout(false);
     spacingValues = {};
     setStoredSpacing(spacingValues);
     applySpacing({});

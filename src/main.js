@@ -3,7 +3,7 @@ import { renderResume } from './renderer.js';
 import { initResumeEditor } from './resume-editor.js';
 import { createResumeStore } from './version-store.js';
 import { getInitialAppLocale, getSupportedAppLocales, i18nReady, setAppLocale } from './app-i18n.js';
-import { getStoredPageSeparators, setPageSeparators, initPageSeparatorResizeListener } from './page-separator-mode.js';
+import { getStoredPageSeparators, setPageSeparators, initPageSeparatorResizeListener, getStoredCompactMode, applyCompactModeClass, COMPACT_PAGE_MARGIN_MM } from './page-separator-mode.js';
 import { inject } from '@vercel/analytics';
 
 const STORAGE_KEY = 'myresume2-theme';
@@ -41,9 +41,18 @@ setTheme(getInitialTheme());
 
 function applySpacing(spacing) {
   Object.entries(spacing || {}).forEach(([key, value]) => {
-    const cssValue = key === 'resume-line-height' || typeof value !== 'number' ? String(value) : `${value}px`;
+    let cssValue;
+    if (typeof value === 'string') cssValue = value;
+    else if (key === 'resume-line-height') cssValue = String(value);
+    else if (key === 'resume-page-margin' || key === 'resume-canvas-padding-x') cssValue = `${value}mm`;
+    else cssValue = `${value}px`;
     document.documentElement.style.setProperty(`--${key}`, cssValue);
   });
+}
+
+if (getStoredCompactMode()) {
+  applyCompactModeClass(true);
+  document.documentElement.style.setProperty('--resume-page-margin', `${COMPACT_PAGE_MARGIN_MM}mm`);
 }
 
 let activeVersion = { versionId: initialVersion.versionId };

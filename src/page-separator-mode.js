@@ -2,6 +2,8 @@
  * page-separator-mode.js — 分页分隔线预览
  *
  * 将简历内容按真实 A4 尺寸（210×297mm）分页渲染，仅用于显示预览分页分隔线。
+ * 页边距由 --resume-page-margin 控制（默认 14mm，紧凑模式 6mm）。
+ * 智能排版在分页完成后，把每页底部多余空白匀到段落间距，不改变切页。
  * 顶部编辑栏可在连续预览与分页分隔线之间切换；打印时复用分页 DOM，
  * 保证预览分隔和 PDF 输出一致。
  *
@@ -17,12 +19,14 @@
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
-const A4_MARGIN_MM = 14;
-// The separated-preview and A4 PDF contract is 210 x 297mm with a 14mm safe
-// margin on every edge, leaving 182 x 269mm for normal page content.
-const PAGE_CONTENT_WIDTH_MM = A4_WIDTH_MM - A4_MARGIN_MM * 2;
-const PAGE_CONTENT_HEIGHT_MM = A4_HEIGHT_MM - A4_MARGIN_MM * 2;
+export const DEFAULT_PAGE_MARGIN_MM = 14;
+export const COMPACT_PAGE_MARGIN_MM = 6;
 const STORAGE_KEY = 'myresume2-page-separators';
+const STORAGE_KEY_COMPACT = 'myresume2-compact-mode';
+const STORAGE_KEY_SMART = 'myresume2-smart-layout';
+const SMART_MIN_LEFTOVER_PX = 6;
+const SMART_MAX_FILL_RATIO = 0.22;
+const SMART_SPARSE_FILL_RATIO = 0.58;
 
 let originalNodes = null;
 let showPageSeparators = false;
@@ -32,6 +36,150 @@ let fontRefreshQueued = false;
 function mmToPx(mm) {
   // 标准 96 DPI：1 inch = 25.4mm = 96px
   return (mm / 25.4) * 96;
+}
+
+export function getStoredCompactMode() {
+  try {
+    return localStorage.getItem(STORAGE_KEY_COMPACT) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setStoredCompactMode(enabled) {
+  try {
+    localStorage.setItem(STORAGE_KEY_COMPACT, enabled ? '1' : '0');
+  } catch {
+    // ignore
+  }
+}
+
+export function applyCompactModeClass(enabled) {
+  document.documentElement.classList.toggle('resume-compact-mode', !!enabled);
+}
+
+export function getStoredSmartLayout() {
+  try {
+    return localStorage.getItem(STORAGE_KEY_SMART) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setStoredSmartLayout(enabled) {
+  try {
+    localStorage.setItem(STORAGE_KEY_SMART, enabled ? '1' : '0');
+  } catch {
+    // ignore
+  }
+}
+
+export function applySmartLayoutClass(enabled) {
+  document.documentElement.classList.toggle('resume-smart-layout', !!enabled);
+}
+
+function getSmartGapWeight(row) {
+  if (row.classList.contains('page-separator-row-section-title')) return 3.4;
+  if (row.classList.contains('page-separator-row-project-separator')) return 2.8;
+  if (row.classList.contains('page-separator-row-entry-header')) return 2.3;
+  if (row.classList.contains('page-separator-row-project-header')) return 2.3;
+  if (row.classList.contains('page-separator-row-skill-item')) return 1.7;
+  if (row.classList.contains('page-separator-row-basic-info')) return 1.5;
+  if (row.classList.contains('page-separator-row-bullet')) return 1;
+  if (row.classList.contains('page-separator-row-header')) return 0;
+  return 1.2;
+}
+
+function getSmartGapCap(row) {
+  if (row.classList.contains('page-separator-row-bullet')) return 8;
+  if (row.classList.contains('page-separator-row-section-title')) return 22;
+  if (row.classList.contains('page-separator-row-project-separator')) return 20;
+  return 16;
+}
+
+function distributeSmartExtras(slots, leftoverPx) {
+  const extras = slots.map(() => 0);
+  let remaining = leftoverPx;
+  for (let pass = 0; pass < 6 && remaining >= 0.5; pass += 1) {
+    const open = [];
+    for (let i = 0; i < slots.length; i += 1) {
+      if (extras[i] + 0.05 < slots[i].cap) open.push(i);
+    }
+    if (!open.length) break;
+    const weightSum = open.reduce((sum, i) => sum + slots[i].weight, 0);
+    if (weightSum <= 0) break;
+    let usedThisPass = 0;
+    for (const i of open) {
+      const add = Math.min(remaining * (slots[i].weight / weightSum), slots[i].cap - extras[i]);
+      extras[i] += add;
+      usedThisPass += add;
+    }
+    remaining -= usedThisPass;
+    if (usedThisPass < 0.25) break;
+  }
+  return extras.map(value => Math.max(0, Math.round(value * 10) / 10));
+}
+
+/**
+ * 把一页底部多出来的空白，按权重匀到章节、条目和列表间距上。
+ * 只拉伸已经排好的页，不改变分页切点；末页内容过少时不拉，避免变成海报。
+ */
+function applySmartJustification(page, { isLastPage, pageCount }) {
+  if (page.closest('.page-separator-page-wrapper-oversized')) return;
+  const content = page.querySelector('.page-separator-page-content');
+  if (!content) return;
+  const rows = [...content.children];
+  if (rows.length < 2) return;
+
+  const styles = getComputedStyle(page);
+  const available = page.clientHeight - parseFloat(styles.paddingTop) - parseFloat(styles.paddingBottom);
+  if (!Number.isFinite(available) || available <= 0) return;
+  const used = content.scrollHeight;
+  let leftover = available - used - 2;
+  if (leftover < SMART_MIN_LEFTOVER_PX) return;
+
+  const fillRatio = used / available;
+  if (isLastPage && pageCount > 1 && fillRatio < SMART_SPARSE_FILL_RATIO) return;
+  leftover = Math.min(leftover, available * SMART_MAX_FILL_RATIO);
+  if (leftover < SMART_MIN_LEFTOVER_PX) return;
+
+  const slots = [];
+  rows.forEach((row, index) => {
+    if (index === 0) return;
+    const weight = getSmartGapWeight(row);
+    if (weight <= 0) return;
+    slots.push({ row, weight, cap: getSmartGapCap(row) });
+  });
+  if (!slots.length) return;
+
+  const extras = distributeSmartExtras(slots, leftover);
+  slots.forEach((slot, index) => {
+    const extra = extras[index];
+    if (extra <= 0) return;
+    if (slot.row.classList.contains('page-separator-row-project-separator')) {
+      const currentHeight = slot.row.offsetHeight;
+      slot.row.style.height = `${currentHeight + extra}px`;
+      const line = slot.row.querySelector('.page-separator-project-separator');
+      if (line) line.style.top = `${(currentHeight + extra) / 2}px`;
+      return;
+    }
+    const currentMargin = parseFloat(getComputedStyle(slot.row).marginTop) || 0;
+    slot.row.style.marginTop = `${currentMargin + extra}px`;
+  });
+  content.classList.add('is-smart-justified');
+}
+
+/**
+ * 读取当前 A4 安全边距。紧凑模式和排版滑条都会改 --resume-page-margin。
+ */
+export function getPageMarginMm() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--resume-page-margin').trim()
+    || getComputedStyle(document.documentElement).getPropertyValue('--resume-canvas-padding-x').trim();
+  const mm = raw.match(/^([\d.]+)\s*mm$/i);
+  if (mm) return Number(mm[1]);
+  const px = raw.match(/^([\d.]+)\s*px$/i);
+  if (px) return Number(px[1]) * 25.4 / 96;
+  return DEFAULT_PAGE_MARGIN_MM;
 }
 
 /**
@@ -187,7 +335,7 @@ function splitIntoRows(naturalNodes) {
 
 /**
  * 在完整 A4 页框中测量候选行。只有最后一行的实际下缘仍位于纸张底部
- * 14mm 安全边距之上时，该候选页才允许继续容纳内容。
+ * 安全边距之上时，该候选页才允许继续容纳内容。
  */
 function createPageContentMeasurer() {
   const measurer = document.createElement('div');
@@ -215,7 +363,7 @@ function measureCandidatePage(rows) {
   const finalVisibleEdge = finalRow
     ? finalRow.getBoundingClientRect().bottom
     : contentBounds.top;
-  const lowerSafeBoundary = pageBounds.bottom - mmToPx(A4_MARGIN_MM);
+  const lowerSafeBoundary = pageBounds.bottom - mmToPx(getPageMarginMm());
   const contentHeight = content.scrollHeight;
 
   document.body.removeChild(measurer);
@@ -343,11 +491,12 @@ function renderSeparatedPages(app, naturalNodes) {
     wrapper.className = 'page-separator-page-wrapper';
 
     const { contentHeight: contentHeightPx, fits } = measureCandidatePage(pageRows);
-    const safeContentHeightPx = mmToPx(PAGE_CONTENT_HEIGHT_MM);
+    const pageMarginMm = getPageMarginMm();
+    const safeContentHeightPx = mmToPx(A4_HEIGHT_MM - pageMarginMm * 2);
     if (!fits && contentHeightPx > safeContentHeightPx) {
       // An exceptional one-row page cannot fit on A4. Grow only the preview
       // wrapper so every line remains inspectable instead of being clipped.
-      const expandedPageHeightPx = contentHeightPx + mmToPx(A4_MARGIN_MM * 2);
+      const expandedPageHeightPx = contentHeightPx + mmToPx(pageMarginMm * 2);
       wrapper.style.setProperty('--page-separator-page-height', `${expandedPageHeightPx}px`);
       wrapper.classList.add('page-separator-page-wrapper-oversized');
     }
@@ -368,6 +517,19 @@ function renderSeparatedPages(app, naturalNodes) {
     wrapper.appendChild(page);
     app.appendChild(wrapper);
   });
+
+  if (getStoredSmartLayout()) {
+    applySmartLayoutClass(true);
+    const renderedPages = app.querySelectorAll('.page-separator-page');
+    renderedPages.forEach((page, index) => {
+      applySmartJustification(page, {
+        isLastPage: index === renderedPages.length - 1,
+        pageCount: renderedPages.length,
+      });
+    });
+  } else {
+    applySmartLayoutClass(false);
+  }
 
   updatePageSeparatorScale();
 }
@@ -430,6 +592,7 @@ export function setPageSeparators(enabled, forceRecapture = false) {
   } else {
     document.documentElement.classList.remove('page-separator-mode');
     document.body.classList.remove('page-separator-mode');
+    applySmartLayoutClass(false);
     restoreNaturalFlow(app, forceRecapture);
   }
 

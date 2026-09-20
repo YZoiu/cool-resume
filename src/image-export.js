@@ -58,7 +58,7 @@ export async function exportResumeImage({ format = 'png', scale = 2, fileName = 
     const captureContent = cloneNaturalResumeContent(target);
     captureContent.style.width = '100%';
     captureContent.style.boxSizing = 'border-box';
-    captureContent.style.padding = 'var(--resume-body-padding-y) var(--resume-canvas-padding-x)';
+    captureContent.style.padding = 'var(--resume-body-padding-y) var(--resume-page-margin)';
     captureContent.style.background = 'var(--theme-bg, #fff)';
     root.style.padding = '32px';
     root.appendChild(captureContent);
