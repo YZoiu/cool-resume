@@ -45,8 +45,8 @@ function applySpacing(spacing) {
   Object.entries(spacing || {}).forEach(([key, value]) => {
     let cssValue;
     if (typeof value === 'string') cssValue = value;
-    else if (key === 'resume-line-height') cssValue = String(value);
-    else if (key === 'resume-page-margin' || key === 'resume-canvas-padding-x') cssValue = `${value}mm`;
+    else if (key.endsWith('-line-height')) cssValue = String(value);
+    else if (key === 'resume-page-margin' || key === 'resume-canvas-padding-x' || key === 'resume-header-top-gap') cssValue = `${value}mm`;
     else cssValue = `${value}px`;
     document.documentElement.style.setProperty(`--${key}`, cssValue);
     if (key === 'resume-text-font-size') document.documentElement.style.setProperty('--text-font-size', cssValue);

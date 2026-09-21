@@ -42,6 +42,10 @@ async function readRequestJson(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
+function newVersionId() {
+  return createVersionId();
+}
+
 async function removeVersionFile(file) {
   try {
     await execFileAsync('trash', [file]);
@@ -75,7 +79,7 @@ function resumeSourceSyncPlugin() {
             if (!normalizedName) throw new Error('版本名称不能为空');
             if (parentId !== null) getVersion(catalog, parentId);
             const source = copyFromVersionId === null ? null : getVersion(catalog, copyFromVersionId);
-            const versionId = createVersionId();
+            const versionId = newVersionId();
             const now = new Date().toISOString();
             const version = { id: versionId, name: normalizedName, parentId, file: `versions/${versionId}.json`, createdAt: now, updatedAt: now };
             const data = source ? await readJson(versionPath(source.id)) : EMPTY_RESUME;

@@ -10,7 +10,8 @@
       "resume-body-padding-y": 11,
       "resume-section-gap": 12,
       "resume-entry-gap": 16,
-      "resume-list-gap": 3
+      "resume-list-gap": 3,
+      "resume-list-line-height": 1.65
     }
   },
   "order": ["header", "summary", "skills", "work", "projects"],

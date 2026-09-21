@@ -256,7 +256,6 @@ function renderProjects(projects) {
         <div class="resume-entry-date">${editable(`projects.${index}.date`, entry.date)}</div>
       </div>
       ${renderProjectMeta(entry, index)}
-      <hr class="resume-project-divider">
       <div class="resume-entry-summary">${renderBullets(entry.summary, `projects.${index}.summary`)}</div>
     </div>
   `).join('');

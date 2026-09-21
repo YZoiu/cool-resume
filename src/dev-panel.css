@@ -48,15 +48,41 @@ body:not(.page-separator-mode), body.page-separator-mode #app { transition: padd
 .resume-editor-toolbar-drawer-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
 .resume-editor-toolbar-drawer-header strong { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
 .resume-editor-toolbar-drawer-header span { color: #8a8580; font-size: 12px; }
-.resume-editor-layout-options { display: grid; gap: 8px; margin-bottom: 14px; }
-.resume-editor-layout-option { display: flex; align-items: center; justify-content: space-between; min-height: 32px; margin: 0; padding: 0 9px; border: 1px solid #e7e5e4; border-radius: 6px; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
+.resume-editor-layout-options { display: grid; gap: 8px; }
+.resume-editor-layout-option { display: flex; align-items: center; justify-content: space-between; min-height: 32px; margin: 0; padding: 0 9px; border: 1px solid #e7e5e4; border-radius: 6px; background: #fff; color: #57534e; font-size: 12px; font-weight: 600; cursor: pointer; }
 .resume-editor-layout-option:hover { border-color: #d6d3d1; background: #fafaf9; }
 .resume-editor-layout-option input { width: 15px; height: 15px; margin: 0; accent-color: #2563eb; }
 .resume-editor-layout-option input:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .resume-editor-layout-option-select { gap: 10px; padding: 4px 9px; cursor: default; }
 .resume-editor-title-style-select { max-width: 150px; height: 26px; padding: 0 4px; border: 1px solid #e7e5e4; border-radius: 6px; background: #fff; color: #44403c; font: 600 11px var(--font-sans); }
-.resume-editor-spacing-groups { display: grid; gap: 14px; margin-bottom: 14px; }
-.resume-editor-spacing-group h3 { margin: 0 0 8px; color: #44403c; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.resume-editor-spacing-groups { display: grid; gap: 10px; margin-bottom: 14px; }
+.resume-editor-spacing-group {
+  padding: 12px;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  background: #fafaf8;
+}
+.resume-editor-spacing-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eeeae6;
+  color: #44403c;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.resume-editor-spacing-group h3::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
 .resume-editor-spacing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
 .resume-editor-spacing-item { display: grid; grid-template-columns: 1fr auto; gap: 7px 8px; align-items: center; color: #57534e; font-size: 12px; font-weight: 600; }
 .resume-editor-spacing-item output { color: #78716c; font-family: var(--font-mono); font-size: 11px; font-weight: 400; }

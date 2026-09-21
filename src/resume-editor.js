@@ -5,7 +5,7 @@ import { APP_ICONS } from './icon-set.js';
 import { saveBlob, SaveCancelledError } from './file-save.js';
 import { basicSetup } from 'codemirror';
 import { json } from '@codemirror/lang-json';
-import { Annotation, EditorState, Transaction } from '@codemirror/state';
+import { Annotation, EditorState, Prec, Transaction } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { bracketMatching } from '@codemirror/language';
@@ -44,25 +44,42 @@ export function initResumeEditor({ initialData, initialText, defaultData: initia
   const editor = document.createElement('aside');
   editor.className = 'resume-json-editor';
   editor.setAttribute('aria-label', t(locale, 'editor.title'));
+  const shortcutMod = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '') ? '⌘' : 'Ctrl';
   editor.innerHTML = `
     <div class="resume-json-editor-header">
-      <div>
-        <div class="resume-json-editor-title"><i data-lucide="code-2"></i>${t(locale, 'editor.title')}</div>
-    <div class="resume-json-editor-subtitle">${t(locale, 'editor.subtitle')}</div>
+      <div class="resume-json-editor-identity">
+        <span class="resume-json-editor-mark" aria-hidden="true"><i data-lucide="file-json"></i></span>
+        <div class="resume-json-editor-copy">
+          <div class="resume-json-editor-title">${t(locale, 'editor.title')}</div>
+          <div class="resume-json-editor-subtitle">${t(locale, 'editor.subtitle')}</div>
+        </div>
       </div>
-      <button type="button" class="resume-json-editor-icon-button" data-editor-action="close" aria-label="${t(locale, 'editor.close')}" title="${t(locale, 'editor.close')}"><i data-lucide="x"></i></button>
+      <div class="resume-json-editor-header-meta">
+        <output class="resume-json-editor-status" data-editor-status role="status">${t(locale, 'editor.loaded')}</output>
+        <button type="button" class="resume-json-editor-icon-button" data-editor-action="close" aria-label="${t(locale, 'editor.close')}" title="${t(locale, 'editor.close')}"><i data-lucide="x"></i></button>
+      </div>
     </div>
-    <div class="resume-json-editor-status" data-editor-status role="status">${t(locale, 'editor.loaded')}</div>
-    <div class="resume-json-editor-input" role="textbox" aria-label="${t(locale, 'editor.contentAria')}"></div>
-    <div class="resume-json-editor-actions">
-      <button type="button" class="resume-json-editor-button primary" data-editor-action="apply"><i data-lucide="check"></i>${t(locale, 'editor.apply')}</button>
-      <button type="button" class="resume-json-editor-button" data-editor-action="format">${t(locale, 'editor.format')}</button>
-      <button type="button" class="resume-json-editor-button" data-editor-action="copy"><i data-lucide="copy"></i>${t(locale, 'editor.copy')}</button>
-      <button type="button" class="resume-json-editor-button" data-editor-action="upload"><i data-lucide="upload"></i>${t(locale, 'editor.upload')}</button>
-      <button type="button" class="resume-json-editor-button" data-editor-action="download"><i data-lucide="download"></i>${t(locale, 'editor.download')}</button>
-      <button type="button" class="resume-json-editor-button quiet" data-editor-action="reset"><i data-lucide="rotate-ccw"></i>${t(locale, 'editor.reset')}</button>
+    <div class="resume-json-editor-stage">
+      <div class="resume-json-editor-tablist" aria-hidden="true">
+        <span class="resume-json-editor-tab"><span class="resume-json-editor-tab-dot"></span>${t(locale, 'editor.tab')}</span>
+      </div>
+      <div class="resume-json-editor-input" role="textbox" aria-label="${t(locale, 'editor.contentAria')}"></div>
     </div>
-    <div class="resume-json-editor-hint">${t(locale, 'editor.hint')}</div>
+    <div class="resume-json-editor-dock">
+      <div class="resume-json-editor-actions">
+        <button type="button" class="resume-json-editor-button primary" data-editor-action="apply"><i data-lucide="check"></i>${t(locale, 'editor.apply')}</button>
+        <span class="resume-json-editor-action-group">
+          <button type="button" class="resume-json-editor-button" data-editor-action="format">${t(locale, 'editor.format')}</button>
+          <button type="button" class="resume-json-editor-button" data-editor-action="copy"><i data-lucide="copy"></i>${t(locale, 'editor.copy')}</button>
+        </span>
+        <span class="resume-json-editor-action-group">
+          <button type="button" class="resume-json-editor-button" data-editor-action="upload"><i data-lucide="upload"></i>${t(locale, 'editor.upload')}</button>
+          <button type="button" class="resume-json-editor-button" data-editor-action="download"><i data-lucide="download"></i>${t(locale, 'editor.download')}</button>
+        </span>
+        <button type="button" class="resume-json-editor-button quiet" data-editor-action="reset"><i data-lucide="rotate-ccw"></i>${t(locale, 'editor.reset')}</button>
+      </div>
+      <p class="resume-json-editor-hint"><span>${t(locale, 'editor.hint')}</span><span class="resume-json-editor-keys"><kbd>${shortcutMod}</kbd><span>+</span><kbd>Enter</kbd></span></p>
+    </div>
     <input type="file" class="resume-json-editor-file-input" accept="application/json,.json" hidden />
     <div class="resume-json-editor-resize-handle" role="separator" aria-label="${t(locale, 'editor.resize')}" title="${t(locale, 'editor.resize')}"></div>
   `;
@@ -159,6 +176,9 @@ export function initResumeEditor({ initialData, initialText, defaultData: initia
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         lintGutter(),
         linter(jsonDiagnostics, { delay: 250 }),
+        Prec.highest(keymap.of([
+          { key: 'Mod-Enter', preventDefault: true, run: () => { void applyInput(); return true; } },
+        ])),
         EditorView.updateListener.of(update => {
           if (!update.docChanged || update.transactions.some(transaction => transaction.annotation(remoteUpdate))) return;
           if (update.view.composing) {

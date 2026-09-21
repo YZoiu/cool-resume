@@ -35,11 +35,9 @@ const THEME_GROUPS = [
     ],
   },
 ];
-const TITLE_STYLE_OPTIONS = [
-  { id: 'theme', key: 'app.titleStyleTheme' },
-  { id: 'minimal', key: 'app.titleStyleMinimal' },
-  { id: 'bar', key: 'app.titleStyleBar' },
-];
+const TITLE_STYLE_IDS = ['theme', 'underline', 'bar', 'left', 'wash', 'outline', 'plain'];
+const TITLE_STYLE_OPTIONS = TITLE_STYLE_IDS.map(id => ({ id, key: `app.titleStyle${id[0].toUpperCase()}${id.slice(1)}` }));
+const BAR_THEMES = new Set(['navy', 'teal', 'navy-forest', 'navy-burgundy', 'navy-charcoal']);
 const SPACING_GROUPS = [
   { id: 'paper', key: 'spacing.paper' },
   { id: 'header', key: 'spacing.header' },
@@ -49,34 +47,34 @@ const SPACING_GROUPS = [
   { id: 'list', key: 'spacing.list' },
 ];
 const SPACING_CONTROLS = [
-  { key: 'resume-page-margin', group: 'paper', label: '页边距', en: 'Page margin', min: 4, max: 16, step: 1, unit: 'mm', fallback: DEFAULT_PAGE_MARGIN_MM },
-  { key: 'resume-body-padding-y', group: 'paper', label: '顶部边距', en: 'Top padding', min: 0, max: 40, step: 1, unit: 'px' },
-  { key: 'resume-line-height', group: 'paper', label: '行高', en: 'Line height', min: 1.05, max: 1.8, step: 0.05, unit: '' },
-  { key: 'resume-text-font-size', group: 'paper', label: '正文字号', en: 'Body size', min: 11, max: 16, step: 0.5, unit: 'px', fallback: 13, alias: '--text-font-size' },
-  { key: 'resume-header-gap', group: 'header', label: '姓名区块', en: 'Name block', min: 0, max: 28, step: 1, unit: 'px' },
-  { key: 'resume-header-bottom-gap', group: 'header', label: '页眉底部', en: 'Header bottom', min: 0, max: 18, step: 1, unit: 'px' },
-  { key: 'resume-name-size', group: 'header', label: '姓名字号', en: 'Name size', min: 16, max: 32, step: 1, unit: 'px', fallback: 22 },
-  { key: 'resume-basic-info-gap', group: 'header', label: '信息行距', en: 'Info gap', min: 0, max: 14, step: 1, unit: 'px' },
-  { key: 'resume-profile-column-gap', group: 'header', label: '信息列距', en: 'Info columns', min: 8, max: 36, step: 1, unit: 'px', fallback: 16 },
-  { key: 'resume-education-gap', group: 'header', label: '教育条目', en: 'Education gap', min: 0, max: 16, step: 1, unit: 'px', fallback: 6 },
-  { key: 'resume-section-title-size', group: 'title', label: '标题字号', en: 'Title size', min: 12, max: 20, step: 0.5, unit: 'px', fallback: 14 },
-  { key: 'resume-section-title-pad-y', group: 'title', label: '标题上下边距', en: 'Title pad Y', min: 0, max: 12, step: 1, unit: 'px', optional: true, fallback: 3 },
-  { key: 'resume-section-title-pad-x', group: 'title', label: '标题左右边距', en: 'Title pad X', min: 0, max: 16, step: 1, unit: 'px', optional: true, fallback: 8 },
-  { key: 'resume-section-title-radius', group: 'title', label: '标题圆角', en: 'Title radius', min: 0, max: 10, step: 1, unit: 'px', optional: true, fallback: 3 },
-  { key: 'resume-section-title-rule', group: 'title', label: '下划线粗细', en: 'Underline', min: 0, max: 4, step: 1, unit: 'px', optional: true, fallback: 1 },
-  { key: 'resume-section-title-tracking', group: 'title', label: '标题字距', en: 'Tracking', min: 0, max: 2, step: 0.1, unit: 'px', optional: true, fallback: 1 },
-  { key: 'resume-section-title-gap', group: 'title', label: '标题与内容', en: 'Title gap', min: 0, max: 16, step: 1, unit: 'px' },
-  { key: 'resume-section-gap', group: 'section', label: '章节间距', en: 'Section gap', min: 0, max: 30, step: 1, unit: 'px' },
-  { key: 'resume-section-rule-gap', group: 'section', label: '章节分割线', en: 'Section rule', min: 0, max: 24, step: 1, unit: 'px' },
-  { key: 'resume-entry-gap', group: 'entry', label: '条目间距', en: 'Entry gap', min: 0, max: 24, step: 1, unit: 'px' },
-  { key: 'resume-entry-header-gap', group: 'entry', label: '条目标题', en: 'Entry header', min: 0, max: 12, step: 1, unit: 'px' },
-  { key: 'resume-entry-title-size', group: 'entry', label: '条目标题字号', en: 'Entry size', min: 12, max: 20, step: 0.5, unit: 'px', fallback: 15.5 },
-  { key: 'resume-project-separator', group: 'entry', label: '项目分割线', en: 'Project rule', min: 0, max: 28, step: 1, unit: 'px' },
-  { key: 'resume-project-inner-divider', group: 'entry', label: '项目内分割线', en: 'Inner rule', min: 0, max: 24, step: 1, unit: 'px' },
-  { key: 'resume-skill-gap', group: 'list', label: '技能行距', en: 'Skill gap', min: 0, max: 16, step: 1, unit: 'px' },
-  { key: 'resume-list-gap', group: 'list', label: '列表间距', en: 'List gap', min: 0, max: 8, step: 1, unit: 'px' },
-  { key: 'resume-list-top-gap', group: 'list', label: '列表上间距', en: 'List top', min: 0, max: 12, step: 1, unit: 'px' },
-  { key: 'resume-keyword-gap', group: 'list', label: '关键字间距', en: 'Keyword gap', min: 0, max: 14, step: 1, unit: 'px' },
+  { key: 'resume-page-margin', group: 'paper', label: '页边距', en: 'Page margin', min: 2, max: 28, step: 1, unit: 'mm', fallback: DEFAULT_PAGE_MARGIN_MM },
+  { key: 'resume-body-padding-y', group: 'paper', label: '底部边距', en: 'Bottom padding', min: 0, max: 72, step: 1, unit: 'px' },
+  { key: 'resume-line-height', group: 'paper', label: '行高', en: 'Line height', min: 1, max: 2.4, step: 0.05, unit: '' },
+  { key: 'resume-text-font-size', group: 'paper', label: '正文字号', en: 'Body size', min: 9, max: 22, step: 0.5, unit: 'px', fallback: 13, alias: '--text-font-size' },
+  { key: 'resume-header-top-gap', group: 'header', label: '页头距顶', en: 'Header to top', min: 2, max: 28, step: 1, unit: 'mm', fallback: DEFAULT_PAGE_MARGIN_MM },
+  { key: 'resume-header-gap', group: 'header', label: '页头距栏目', en: 'Header to section', min: -40, max: 56, step: 1, unit: 'px' },
+  { key: 'resume-name-size', group: 'header', label: '姓名字号', en: 'Name size', min: 12, max: 48, step: 1, unit: 'px', fallback: 22 },
+  { key: 'resume-basic-info-gap', group: 'header', label: '信息行距', en: 'Info gap', min: 0, max: 28, step: 1, unit: 'px' },
+  { key: 'resume-profile-column-gap', group: 'header', label: '信息列距', en: 'Info columns', min: 0, max: 72, step: 1, unit: 'px', fallback: 16 },
+  { key: 'resume-education-gap', group: 'header', label: '教育条目', en: 'Education gap', min: 0, max: 36, step: 1, unit: 'px', fallback: 6 },
+  { key: 'resume-section-title-size', group: 'title', label: '标题字号', en: 'Title size', min: 10, max: 32, step: 0.5, unit: 'px', fallback: 14 },
+  { key: 'resume-section-title-pad-y', group: 'title', label: '标题上下边距', en: 'Title pad Y', min: 0, max: 28, step: 1, unit: 'px', fallback: 4 },
+  { key: 'resume-section-title-pad-x', group: 'title', label: '标题左右边距', en: 'Title pad X', min: 0, max: 36, step: 1, unit: 'px', fallback: 8 },
+  { key: 'resume-section-title-radius', group: 'title', label: '标题圆角', en: 'Title radius', min: 0, max: 24, step: 1, unit: 'px', fallback: 3 },
+  { key: 'resume-section-title-rule', group: 'title', label: '装饰线粗细', en: 'Accent weight', min: 0, max: 8, step: 1, unit: 'px', fallback: 2 },
+  { key: 'resume-section-title-tracking', group: 'title', label: '标题字距', en: 'Tracking', min: 0, max: 6, step: 0.1, unit: 'px', fallback: 1 },
+  { key: 'resume-section-title-gap', group: 'title', label: '标题与内容', en: 'Title gap', min: 0, max: 36, step: 1, unit: 'px' },
+  { key: 'resume-section-gap', group: 'section', label: '章节间距', en: 'Section gap', min: 0, max: 64, step: 1, unit: 'px' },
+  { key: 'resume-section-rule-gap', group: 'section', label: '章节上间距', en: 'Section top', min: 0, max: 56, step: 1, unit: 'px' },
+  { key: 'resume-entry-gap', group: 'entry', label: '条目间距', en: 'Entry gap', min: 0, max: 56, step: 1, unit: 'px' },
+  { key: 'resume-entry-header-gap', group: 'entry', label: '条目标题', en: 'Entry header', min: 0, max: 28, step: 1, unit: 'px' },
+  { key: 'resume-entry-title-size', group: 'entry', label: '条目标题字号', en: 'Entry size', min: 10, max: 32, step: 0.5, unit: 'px', fallback: 15.5 },
+  { key: 'resume-project-separator', group: 'entry', label: '项目分割线', en: 'Project rule', min: 0, max: 56, step: 1, unit: 'px' },
+  { key: 'resume-skill-gap', group: 'list', label: '技能行距', en: 'Skill gap', min: 0, max: 32, step: 1, unit: 'px' },
+  { key: 'resume-list-gap', group: 'list', label: '列表间距', en: 'List gap', min: 0, max: 24, step: 1, unit: 'px' },
+  { key: 'resume-list-line-height', group: 'list', label: '点内行距', en: 'Wrap spacing', min: 1, max: 2.8, step: 0.05, unit: '', fallback: 1.65 },
+  { key: 'resume-list-top-gap', group: 'list', label: '列表上间距', en: 'List top', min: 0, max: 28, step: 1, unit: 'px' },
+  { key: 'resume-keyword-gap', group: 'list', label: '关键字间距', en: 'Keyword gap', min: 0, max: 32, step: 1, unit: 'px' },
 ];
 const STORAGE_KEY_THEME = 'myresume2-theme';
 const STORAGE_KEY_SPACING = 'myresume2-spacing';
@@ -110,19 +108,28 @@ function exportFileName(catalog, activeVersion) {
   return `resume-${safe(version?.name)}-${safe(version?.id)}-${timestamp}`;
 }
 
+function normalizeTitleStyle(value) {
+  if (value === 'minimal') return 'underline';
+  return TITLE_STYLE_IDS.includes(value) ? value : 'theme';
+}
+function resolvedTitleStyle(value, theme) {
+  const style = normalizeTitleStyle(value);
+  if (style !== 'theme') return style;
+  return BAR_THEMES.has(theme || document.documentElement.getAttribute('data-theme')) ? 'bar' : 'underline';
+}
 function getStoredTitleStyle() {
-  try {
-    const value = localStorage.getItem(STORAGE_KEY_TITLE_STYLE);
-    return TITLE_STYLE_OPTIONS.some(item => item.id === value) ? value : 'theme';
-  } catch { return 'theme'; }
+  try { return normalizeTitleStyle(localStorage.getItem(STORAGE_KEY_TITLE_STYLE)); }
+  catch { return 'theme'; }
 }
 function setStoredTitleStyle(value) {
-  try { localStorage.setItem(STORAGE_KEY_TITLE_STYLE, value); } catch { /* ignore */ }
+  try { localStorage.setItem(STORAGE_KEY_TITLE_STYLE, normalizeTitleStyle(value)); } catch { /* ignore */ }
 }
-function applyTitleStyle(value) {
+function applyTitleStyle(value, theme) {
+  const resolved = resolvedTitleStyle(value, theme);
   const root = document.documentElement;
-  root.classList.toggle('resume-title-style-minimal', value === 'minimal');
-  root.classList.toggle('resume-title-style-bar', value === 'bar');
+  ['underline', 'bar', 'left', 'wash', 'outline', 'plain', 'minimal'].forEach(style => {
+    root.classList.toggle(`resume-title-style-${style}`, style === resolved);
+  });
 }
 
 function renderThemeOptions(currentTheme, locale) {
@@ -133,13 +140,13 @@ function renderSpacingControls(locale) {
   return SPACING_GROUPS.map(group => {
     const controls = SPACING_CONTROLS.filter(item => item.group === group.id);
     if (!controls.length) return '';
-    return `<section class="resume-editor-spacing-group"><h3>${t(locale, group.key)}</h3><div class="resume-editor-spacing-grid">${controls.map(control => `<label class="resume-editor-spacing-item"><span>${locale === 'en-US' ? control.en : control.label}</span><output data-key="${control.key}"></output><input type="range" data-key="${control.key}" min="${control.min}" max="${control.max}" step="${control.step}" value="${SPACING_DEFAULTS[control.key]}" /></label>`).join('')}</div></section>`;
+    return `<section class="resume-editor-spacing-group" data-spacing-group="${group.id}"><h3>${t(locale, group.key)}</h3><div class="resume-editor-spacing-grid">${controls.map(control => `<label class="resume-editor-spacing-item"><span>${locale === 'en-US' ? control.en : control.label}</span><output data-key="${control.key}"></output><input type="range" data-key="${control.key}" min="${control.min}" max="${control.max}" step="${control.step}" value="${SPACING_DEFAULTS[control.key]}" /></label>`).join('')}</div></section>`;
   }).join('');
 }
 
 function spacingCssValue(control, value) {
-  if (control.key === 'resume-line-height') return String(value);
-  return `${value}${control.unit || ''}`;
+  if (!control.unit) return String(value);
+  return `${value}${control.unit}`;
 }
 
 function renderVersionNode(catalog, version, activeVersionId, depth, locale, expansion) {
@@ -203,13 +210,6 @@ function applySpacing(values) {
     root.style.setProperty(`--${control.key}`, cssValue);
     if (control.alias) root.style.setProperty(control.alias, cssValue);
   });
-  const padY = values['resume-section-title-pad-y'];
-  const padX = values['resume-section-title-pad-x'];
-  if (padY !== undefined || padX !== undefined) {
-    root.style.setProperty('--resume-section-title-padding', `${padY ?? SPACING_DEFAULTS['resume-section-title-pad-y']}px ${padX ?? SPACING_DEFAULTS['resume-section-title-pad-x']}px`);
-  } else {
-    root.style.removeProperty('--resume-section-title-padding');
-  }
 }
 function getToolbarVisibility() {
   try { return localStorage.getItem(STORAGE_KEY_TOOLBAR) !== 'false'; } catch { return true; }
@@ -267,14 +267,17 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     </div>
     <div class="resume-editor-toolbar-drawer" aria-hidden="true">
       <div class="resume-editor-toolbar-drawer-header"><strong><i data-lucide="sliders-horizontal"></i>${t(locale, 'app.spacingTitle')}</strong><span>${t(locale, 'app.spacingHint')}</span></div>
-      <div class="resume-editor-layout-options">
-        <label class="resume-editor-layout-option" title="${t(locale, 'app.pageSeparatorsTitle')}"><span>${t(locale, 'app.pageSeparators')}</span><input type="checkbox" class="resume-editor-page-separator-toggle" /></label>
-        <label class="resume-editor-layout-option" title="${t(locale, 'app.compactModeTitle')}"><span>${t(locale, 'app.compactMode')}</span><input type="checkbox" class="resume-editor-compact-toggle" /></label>
-        <label class="resume-editor-layout-option" title="${t(locale, 'app.smartLayoutTitle')}"><span>${t(locale, 'app.smartLayout')}</span><input type="checkbox" class="resume-editor-smart-layout-toggle" /></label>
-        <label class="resume-editor-layout-option" title="${t(locale, 'app.showPhotoTitle')}"><span>${t(locale, 'app.showPhoto')}</span><input type="checkbox" class="resume-editor-photo-toggle" /></label>
-        <label class="resume-editor-layout-option resume-editor-layout-option-select" title="${t(locale, 'app.titleStyleTitle')}"><span>${t(locale, 'app.titleStyle')}</span><select class="resume-editor-title-style-select" aria-label="${t(locale, 'app.titleStyle')}">${TITLE_STYLE_OPTIONS.map(option => `<option value="${option.id}">${t(locale, option.key)}</option>`).join('')}</select></label>
-      </div>
       <div class="resume-editor-spacing-groups">
+        <section class="resume-editor-spacing-group" data-spacing-group="preview">
+          <h3>${t(locale, 'spacing.preview')}</h3>
+          <div class="resume-editor-layout-options">
+            <label class="resume-editor-layout-option" title="${t(locale, 'app.pageSeparatorsTitle')}"><span>${t(locale, 'app.pageSeparators')}</span><input type="checkbox" class="resume-editor-page-separator-toggle" /></label>
+            <label class="resume-editor-layout-option" title="${t(locale, 'app.compactModeTitle')}"><span>${t(locale, 'app.compactMode')}</span><input type="checkbox" class="resume-editor-compact-toggle" /></label>
+            <label class="resume-editor-layout-option" title="${t(locale, 'app.smartLayoutTitle')}"><span>${t(locale, 'app.smartLayout')}</span><input type="checkbox" class="resume-editor-smart-layout-toggle" /></label>
+            <label class="resume-editor-layout-option" title="${t(locale, 'app.showPhotoTitle')}"><span>${t(locale, 'app.showPhoto')}</span><input type="checkbox" class="resume-editor-photo-toggle" /></label>
+            <label class="resume-editor-layout-option resume-editor-layout-option-select" title="${t(locale, 'app.titleStyleTitle')}"><span>${t(locale, 'app.titleStyle')}</span><select class="resume-editor-title-style-select" aria-label="${t(locale, 'app.titleStyle')}">${TITLE_STYLE_OPTIONS.map(option => `<option value="${option.id}">${t(locale, option.key)}</option>`).join('')}</select></label>
+          </div>
+        </section>
         ${renderSpacingControls(locale)}
       </div>
       <button type="button" class="resume-editor-toolbar-button" data-action="reset-spacing">${t(locale, 'app.resetSpacing')}</button>
@@ -401,12 +404,15 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     setStoredCompactMode(compactEnabled);
     if (compactEnabled) {
       spacingValues['resume-page-margin'] = String(COMPACT_PAGE_MARGIN_MM);
+      spacingValues['resume-header-top-gap'] = String(COMPACT_PAGE_MARGIN_MM);
     } else {
       delete spacingValues['resume-page-margin'];
+      delete spacingValues['resume-header-top-gap'];
     }
     applySpacing(spacingValues);
     setStoredSpacing(spacingValues);
     syncSpacingSlider('resume-page-margin');
+    syncSpacingSlider('resume-header-top-gap');
     updateSpacingOutputs();
     schedulePageSeparatorRefresh();
   }
@@ -457,6 +463,9 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   if (compactEnabled && spacingValues['resume-page-margin'] === undefined) {
     spacingValues['resume-page-margin'] = String(COMPACT_PAGE_MARGIN_MM);
   }
+  if (compactEnabled && spacingValues['resume-header-top-gap'] === undefined) {
+    spacingValues['resume-header-top-gap'] = String(COMPACT_PAGE_MARGIN_MM);
+  }
   applyCompactModeClass(compactEnabled);
   applySpacing(spacingValues);
   compactToggle.checked = compactEnabled;
@@ -466,7 +475,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   applyShowPhotoClass(showPhotoEnabled);
   const titleStyle = getStoredTitleStyle();
   titleStyleSelect.value = titleStyle;
-  applyTitleStyle(titleStyle);
+  applyTitleStyle(titleStyle, themeSelect.value);
   editModeToggle.checked = document.documentElement.classList.contains('resume-preview-edit-mode');
   schedulePageSeparatorRefresh(0);
   spacingSliders.forEach(slider => {
@@ -480,7 +489,11 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     });
   });
   updateSpacingOutputs();
-  themeSelect.addEventListener('change', () => onThemeChange(themeSelect.value));
+  themeSelect.addEventListener('change', () => {
+    onThemeChange(themeSelect.value);
+    applyTitleStyle(titleStyleSelect.value, themeSelect.value);
+    schedulePageSeparatorRefresh();
+  });
   versionMenuButton.addEventListener('click', () => {
     const open = versionMenu.hidden;
     versionMenu.hidden = !open;
@@ -636,7 +649,7 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
   smartLayoutToggle.addEventListener('change', () => applySmartLayout(smartLayoutToggle.checked));
   photoToggle.addEventListener('change', () => applyShowPhoto(photoToggle.checked));
   titleStyleSelect.addEventListener('change', () => {
-    applyTitleStyle(titleStyleSelect.value);
+    applyTitleStyle(titleStyleSelect.value, themeSelect.value);
     setStoredTitleStyle(titleStyleSelect.value);
     schedulePageSeparatorRefresh();
   });
@@ -653,6 +666,8 @@ export function initDevPanel({ currentTheme, defaultTheme, defaultSpacing, onThe
     try { localStorage.removeItem(STORAGE_KEY_THEME); } catch {}
     themeSelect.value = defaultTheme;
     onThemeChange(defaultTheme);
+    applyTitleStyle(titleStyleSelect.value, defaultTheme);
+    schedulePageSeparatorRefresh();
   });
   toolbar.querySelector('[data-action="reset-spacing"]').addEventListener('click', () => {
     compactEnabled = false;

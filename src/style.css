@@ -17,13 +17,19 @@
   --resume-text-font-size: 13px;
   --resume-name-size: 22px;
   --resume-section-title-size: 14px;
+  --resume-section-title-pad-y: 4px;
+  --resume-section-title-pad-x: 8px;
+  --resume-section-title-radius: 3px;
+  --resume-section-title-rule: 2px;
   --resume-entry-title-size: 15.5px;
   --resume-body-padding-y: 11px;
+  --resume-header-top-gap: var(--resume-page-margin);
   --resume-section-gap: 12px;
   --resume-entry-gap: 16px;
   --resume-list-gap: 3px;
+  --resume-list-line-height: 1.65;
   --resume-header-gap: 8px;
-  --resume-header-bottom-gap: 2px;
+  --resume-header-bottom-gap: 0px;
   --resume-section-title-gap: 8px;
   --resume-section-rule-gap: 8px;
   --resume-entry-header-gap: 3px;
@@ -34,7 +40,6 @@
   --resume-profile-column-gap: 16px;
   --resume-education-gap: 6px;
   --resume-project-separator: 16px;
-  --resume-project-inner-divider: 14px;
   --resume-photo-width: 25mm;
   --resume-photo-height: 35mm;
   --resume-footer-gap: 32px;
@@ -73,8 +78,8 @@ body {
   line-height: var(--resume-line-height);
   max-width: var(--resume-canvas-width);
   margin: 0 auto;
-  /* 连续预览和分页页使用同一组水平边距，保证切换后不改变换行。 */
-  padding: var(--resume-body-padding-y) var(--resume-page-margin);
+  /* 顶距单独控制页头到纸边；左右仍跟页边距走，避免改顶距时带动换行。 */
+  padding: var(--resume-header-top-gap, var(--resume-body-padding-y)) var(--resume-page-margin) var(--resume-body-padding-y);
 }
 
 /* ===== Header：姓名置顶，基本信息与教育背景整合，证件照贴右上角 ===== */
@@ -86,9 +91,9 @@ body {
 }
 .resume-header {
   position: relative;
-  margin-bottom: var(--resume-header-gap);
+  margin-bottom: 0;
   border-bottom: var(--theme-header-border-width) solid var(--theme-header-border);
-  padding-bottom: calc(var(--theme-header-padding-bottom) + var(--resume-header-bottom-gap));
+  padding-bottom: var(--theme-header-padding-bottom);
 }
 html.resume-show-photo .resume-header {
   min-height: var(--resume-photo-height);
@@ -198,23 +203,30 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
 
 /* ===== Section ===== */
 .resume-section { margin-top: var(--resume-section-gap); }
+.resume-header + .resume-section { margin-top: var(--resume-header-gap); }
 .resume-section + .resume-section {
   padding-top: var(--resume-section-rule-gap);
-  border-top: 1px solid var(--theme-border);
 }
 .resume-section-title {
   display: flex;
   align-items: center;
   gap: 8px;
+  box-sizing: border-box;
+  min-height: calc(
+    max(18px, var(--resume-section-title-size, 14px)) * var(--resume-module-scale, 1)
+    + var(--resume-section-title-pad-y, 4px) * 2
+  );
   font-size: calc(var(--resume-section-title-size, 14px) * var(--resume-module-scale, 1));
   font-weight: 700;
+  line-height: 1.2;
   letter-spacing: var(--resume-section-title-tracking, var(--theme-section-title-letter-spacing));
   color: var(--theme-section-title-text);
-  background: var(--theme-section-title-bg);
+  background: transparent;
   margin-bottom: var(--resume-section-title-gap);
-  padding: var(--resume-section-title-padding, var(--theme-section-title-padding));
-  border-bottom: var(--resume-section-title-rule, var(--theme-section-title-border-width)) solid var(--theme-section-title-border);
-  border-radius: var(--resume-section-title-radius, var(--theme-section-title-border-radius));
+  padding: var(--resume-section-title-pad-y, 4px) var(--resume-section-title-pad-x, 8px);
+  border: 0;
+  border-radius: var(--resume-section-title-radius, 3px);
+  box-shadow: none;
 }
 .resume-section-icon {
   width: 18px;
@@ -222,23 +234,53 @@ a:hover { border-bottom-color: var(--theme-link-hover-border); }
   flex-shrink: 0;
   color: var(--theme-section-icon-color);
 }
-html.resume-title-style-minimal .resume-section-title {
-  background: transparent;
+html.resume-title-style-underline .resume-section-title {
   color: var(--theme-header-name-color);
-  border-bottom-color: var(--theme-accent);
-  border-bottom-width: var(--resume-section-title-rule, 1px);
-  border-radius: var(--resume-section-title-radius, 0);
-  padding: var(--resume-section-title-padding, 0 0 3px 0);
+  box-shadow: inset 0 calc(var(--resume-section-title-rule, 2px) * -1) 0 var(--theme-accent);
 }
-html.resume-title-style-minimal .resume-section-icon { color: var(--theme-accent); }
+html.resume-title-style-underline .resume-section-icon { color: var(--theme-accent); }
 html.resume-title-style-bar .resume-section-title {
   background: var(--theme-accent);
   color: #ffffff;
-  border-bottom-width: 0;
-  border-radius: var(--resume-section-title-radius, 3px);
-  padding: var(--resume-section-title-padding, 3px 8px);
 }
 html.resume-title-style-bar .resume-section-icon { color: #ffffff; }
+html.resume-title-style-left .resume-section-title {
+  color: var(--theme-header-name-color);
+  box-shadow: inset var(--resume-section-title-rule, 3px) 0 0 var(--theme-accent);
+}
+html.resume-title-style-left .resume-section-icon { color: var(--theme-accent); }
+html.resume-title-style-wash .resume-section-title {
+  background: color-mix(in srgb, var(--theme-accent) 14%, #ffffff);
+  color: var(--theme-accent);
+}
+html.resume-title-style-wash .resume-section-icon { color: var(--theme-accent); }
+html.resume-title-style-outline .resume-section-title {
+  color: var(--theme-header-name-color);
+  box-shadow: inset 0 0 0 var(--resume-section-title-rule, 1px) var(--theme-accent);
+}
+html.resume-title-style-outline .resume-section-icon { color: var(--theme-accent); }
+html.resume-title-style-plain .resume-section-title {
+  color: var(--theme-header-name-color);
+}
+html.resume-title-style-plain .resume-section-icon { color: var(--theme-accent); }
+html:not([class*="resume-title-style-"]) .resume-section-title {
+  box-shadow: inset 0 calc(var(--resume-section-title-rule, 2px) * -1) 0 var(--theme-accent);
+}
+html:not([class*="resume-title-style-"]) .resume-section-icon { color: var(--theme-accent); }
+html:not([class*="resume-title-style-"])[data-theme="navy"] .resume-section-title,
+html:not([class*="resume-title-style-"])[data-theme="teal"] .resume-section-title,
+html:not([class*="resume-title-style-"])[data-theme="navy-forest"] .resume-section-title,
+html:not([class*="resume-title-style-"])[data-theme="navy-burgundy"] .resume-section-title,
+html:not([class*="resume-title-style-"])[data-theme="navy-charcoal"] .resume-section-title {
+  background: var(--theme-accent);
+  color: #ffffff;
+  box-shadow: none;
+}
+html:not([class*="resume-title-style-"])[data-theme="navy"] .resume-section-icon,
+html:not([class*="resume-title-style-"])[data-theme="teal"] .resume-section-icon,
+html:not([class*="resume-title-style-"])[data-theme="navy-forest"] .resume-section-icon,
+html:not([class*="resume-title-style-"])[data-theme="navy-burgundy"] .resume-section-icon,
+html:not([class*="resume-title-style-"])[data-theme="navy-charcoal"] .resume-section-icon { color: #ffffff; }
 .resume-section-title-text { min-width: 0; }
 .resume-font-scale-controls {
   display: none;
@@ -330,7 +372,7 @@ html.resume-preview-edit-mode .resume-font-scale-controls { display: inline-flex
 .resume-summary-content li,
 .resume-entry-summary li {
   margin-bottom: var(--resume-list-gap);
-  line-height: var(--resume-line-height);
+  line-height: var(--resume-list-line-height);
 }
 .resume-summary-content li::marker,
 .resume-entry-summary li::marker { color: var(--theme-marker-color); }
@@ -338,6 +380,7 @@ html.resume-preview-edit-mode .resume-font-scale-controls { display: inline-flex
 .resume-entry-summary p {
   font-size: calc(14.5px * var(--resume-module-scale, 1));
   margin-bottom: 0;
+  line-height: var(--resume-list-line-height);
 }
 
 .resume-summary-content strong,
@@ -402,20 +445,6 @@ html.resume-preview-edit-mode .resume-font-scale-controls { display: inline-flex
   color: var(--theme-text);
   padding: 0 2px;
   border-radius: 2px;
-}
-
-/* ===== Project divider (inside a project) ===== */
-.resume-project-divider {
-  border: none;
-  height: 1px;
-  margin: var(--resume-project-inner-divider) 0 calc(var(--resume-project-inner-divider) * 0.7);
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--theme-border) 50%,
-    transparent
-  );
-  opacity: 0.45;
 }
 
 /* ===== Project entry separator (between projects) ===== */
@@ -522,7 +551,7 @@ html.resume-preview-edit-mode .resume-font-scale-controls { display: inline-flex
 
   body {
     max-width: none;
-    padding: var(--resume-page-margin);
+    padding: var(--resume-header-top-gap, var(--resume-page-margin)) var(--resume-page-margin) var(--resume-page-margin);
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -659,7 +688,7 @@ body.page-separator-mode {
 .page-separator-page {
   width: var(--resume-canvas-width);
   height: var(--page-separator-page-height, 297mm);
-  padding: var(--resume-page-margin);
+  padding: var(--resume-header-top-gap, var(--resume-page-margin)) var(--resume-page-margin) var(--resume-page-margin);
   background: #ffffff;
   overflow: hidden;
   position: absolute;
@@ -700,8 +729,9 @@ body.page-separator-mode {
 /* 紧凑模式：把 A4 安全边距顶到接近纸边，并收紧滑条管不到的内部空隙。 */
 html.resume-compact-mode {
   --resume-page-margin: 6mm;
-  --resume-header-gap: 8px;
-  --resume-header-bottom-gap: 4px;
+  --resume-header-top-gap: 6mm;
+  --resume-header-gap: 4px;
+  --resume-header-bottom-gap: 0px;
   --resume-section-title-gap: 5px;
   --resume-section-rule-gap: 4px;
   --resume-entry-header-gap: 2px;
@@ -710,7 +740,6 @@ html.resume-compact-mode {
   --resume-skill-gap: 3px;
   --resume-basic-info-gap: 4px;
   --resume-project-separator: 8px;
-  --resume-project-inner-divider: 8px;
   --resume-footer-gap: 16px;
 }
 
@@ -730,10 +759,12 @@ html.resume-compact-mode .page-separator-row-bullet ul {
 .page-separator-row-section-title {
   margin-top: var(--resume-section-gap);
   padding-top: var(--resume-section-rule-gap);
-  border-top: 1px solid var(--theme-border);
+}
+.page-separator-row-header {
+  margin-bottom: 0;
 }
 .page-separator-row-header + .page-separator-row-section-title {
-  border-top: none;
+  margin-top: var(--resume-header-gap);
   padding-top: 0;
 }
 
@@ -773,8 +804,12 @@ html.resume-compact-mode .page-separator-row-bullet ul {
   margin: 0;
 }
 
-.page-separator-row-bullet li {
-  line-height: var(--resume-line-height);
+.page-separator-row-bullet {
+  line-height: var(--resume-list-line-height);
+}
+.page-separator-row-bullet li,
+.page-separator-row-bullet p {
+  line-height: var(--resume-list-line-height);
   font-size: calc(14.5px * var(--resume-module-scale, 1));
   margin-bottom: 0;
 }

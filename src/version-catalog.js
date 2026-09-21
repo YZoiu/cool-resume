@@ -12,6 +12,8 @@ export function createVersionId() {
   return `v-${Date.now().toString(36)}-${suffix}`;
 }
 
+export const newVersionId = createVersionId;
+
 export function getVersion(catalog, versionId) {
   const version = catalog.versions?.find(item => item.id === versionId);
   if (!version) throw new Error(`未知简历版本：${versionId}`);

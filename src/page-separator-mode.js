@@ -195,14 +195,25 @@ function applySmartJustification(page, { isLastPage, pageCount }) {
 /**
  * 读取当前 A4 安全边距。紧凑模式和排版滑条都会改 --resume-page-margin。
  */
-export function getPageMarginMm() {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--resume-page-margin').trim()
-    || getComputedStyle(document.documentElement).getPropertyValue('--resume-canvas-padding-x').trim();
-  const mm = raw.match(/^([\d.]+)\s*mm$/i);
+function cssLengthToMm(raw, fallbackMm) {
+  const mm = String(raw || '').trim().match(/^([\d.]+)\s*mm$/i);
   if (mm) return Number(mm[1]);
-  const px = raw.match(/^([\d.]+)\s*px$/i);
+  const px = String(raw || '').trim().match(/^([\d.]+)\s*px$/i);
   if (px) return Number(px[1]) * 25.4 / 96;
-  return DEFAULT_PAGE_MARGIN_MM;
+  return fallbackMm;
+}
+
+export function getPageMarginMm() {
+  const styles = getComputedStyle(document.documentElement);
+  return cssLengthToMm(
+    styles.getPropertyValue('--resume-page-margin') || styles.getPropertyValue('--resume-canvas-padding-x'),
+    DEFAULT_PAGE_MARGIN_MM,
+  );
+}
+
+export function getHeaderTopGapMm() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--resume-header-top-gap');
+  return cssLengthToMm(raw, getPageMarginMm());
 }
 
 function stripEditChrome(node) {
@@ -275,7 +286,7 @@ function makeBulletRow(li, scaleStyle = '') {
 
 /**
  * 从工作经历 / 项目经历 / 教育经历的 entry 中提取行：
- * - 头部（公司/岗位/日期、项目背景/技术栈/职责、分隔线）作为一行
+ * - 头部（公司/岗位/日期、项目背景/技术栈/职责）作为一行
  * - 每条 summary bullet 作为独立行
  */
 function extractEntryRows(entryNode, scaleStyle = '') {
@@ -292,9 +303,6 @@ function extractEntryRows(entryNode, scaleStyle = '') {
 
   const meta = entryNode.querySelector(':scope > .resume-project-meta-list');
   if (meta) headerRowContent.appendChild(meta.cloneNode(true));
-
-  const divider = entryNode.querySelector(':scope > .resume-project-divider');
-  if (divider) headerRowContent.appendChild(divider.cloneNode(true));
 
   rows.push(createRow(isProject ? 'project-header' : 'entry-header', headerRowContent, scaleStyle));
 
@@ -540,11 +548,13 @@ function renderSeparatedPages(app, naturalNodes) {
 
     const { contentHeight: contentHeightPx, fits } = measureCandidatePage(pageRows);
     const pageMarginMm = getPageMarginMm();
-    const safeContentHeightPx = mmToPx(A4_HEIGHT_MM - pageMarginMm * 2);
+    const headerTopGapMm = getHeaderTopGapMm();
+    const verticalMarginMm = headerTopGapMm + pageMarginMm;
+    const safeContentHeightPx = mmToPx(A4_HEIGHT_MM - verticalMarginMm);
     if (!fits && contentHeightPx > safeContentHeightPx) {
       // An exceptional one-row page cannot fit on A4. Grow only the preview
       // wrapper so every line remains inspectable instead of being clipped.
-      const expandedPageHeightPx = contentHeightPx + mmToPx(pageMarginMm * 2);
+      const expandedPageHeightPx = contentHeightPx + mmToPx(verticalMarginMm);
       wrapper.style.setProperty('--page-separator-page-height', `${expandedPageHeightPx}px`);
       wrapper.classList.add('page-separator-page-wrapper-oversized');
     }
