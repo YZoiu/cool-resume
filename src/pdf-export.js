@@ -34,6 +34,7 @@ function buildA4PdfFromJpegs(pages) {
       page.bytes,
       text('\nendstream'),
     ]));
+    // 把整张图铺满 MediaBox，避免 PDF 阅读器在图和纸边之间露出黑底。
     const content = `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im0 Do\nQ\n`;
     const contentBytes = text(content);
     const contentId = add(concatBytes([

@@ -40,15 +40,24 @@ function measureCaptureBox(element) {
 }
 
 function compositeOntoWhite(canvas, { crop = 0 } = {}) {
-  const width = Math.max(1, canvas.width - crop * 2);
-  const height = Math.max(1, canvas.height - crop * 2);
+  const width = Math.max(1, canvas.width);
+  const height = Math.max(1, canvas.height);
   const output = document.createElement('canvas');
   output.width = width;
   output.height = height;
   const ctx = output.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
-  ctx.drawImage(canvas, -crop, -crop);
+  ctx.drawImage(canvas, 0, 0);
+  // html2canvas 会把预览灰底/抗锯齿脏边吃进最外圈，JPEG 再压成一圈黑边。
+  // 不裁切画布，只把边缘盖成纯白，避免改变 A4 比例。
+  if (crop > 0) {
+    const frame = Math.min(crop, Math.floor(Math.min(width, height) / 2));
+    ctx.fillRect(0, 0, width, frame);
+    ctx.fillRect(0, 0, frame, height);
+    ctx.fillRect(width - frame, 0, frame, height);
+    ctx.fillRect(0, height - frame, width, frame);
+  }
   return output;
 }
 
@@ -81,7 +90,8 @@ export async function captureElement(element, {
       scrollY: 0,
       onclone(doc, cloned) {
         doc.documentElement.classList.add('resume-capturing');
-        doc.documentElement.classList.remove('resume-editor-split-mode', 'resume-editor-toolbar-visible', 'resume-preview-edit-mode');
+        doc.documentElement.classList.remove('resume-editor-split-mode', 'resume-editor-toolbar-visible', 'resume-preview-edit-mode', 'page-separator-mode');
+        doc.body.classList.remove('page-separator-mode');
         cloned.querySelectorAll('.resume-edit-btn, .resume-photo-resize, .resume-font-scale-controls, .resume-format-menu').forEach(node => node.remove());
         cloned.querySelectorAll('[contenteditable]').forEach(node => node.removeAttribute('contenteditable'));
         cloned.style.transform = 'none';
@@ -98,17 +108,24 @@ export async function captureElement(element, {
         cloned.style.height = `${height}px`;
         cloned.style.overflow = clip ? 'hidden' : 'visible';
         cloned.style.boxShadow = 'none';
+        cloned.style.outline = 'none';
+        cloned.style.border = '0';
         cloned.style.borderRadius = '0';
         cloned.style.background = backgroundColor;
-        doc.documentElement.style.background = backgroundColor;
-        doc.body.style.background = backgroundColor;
+        doc.documentElement.style.setProperty('background', backgroundColor, 'important');
+        doc.body.style.setProperty('background', backgroundColor, 'important');
         doc.body.style.padding = '0px';
         doc.body.style.margin = '0px';
         doc.body.style.maxWidth = 'none';
         doc.body.style.minHeight = '0';
+        Array.from(doc.body.children).forEach(node => {
+          if (node !== cloned && !node.contains(cloned) && !cloned.contains(node)) {
+            node.style.setProperty('display', 'none', 'important');
+          }
+        });
       },
     });
-    const flattened = compositeOntoWhite(canvas, { crop: clip ? 2 : 0 });
+    const flattened = compositeOntoWhite(canvas, { crop: clip ? 8 : 0 });
     if (!sampleHasInk(flattened)) throw new Error('截图结果是空白');
     return flattened;
   } finally {

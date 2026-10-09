@@ -63,7 +63,10 @@ html {
 }
 
 html.resume-capturing,
-html.resume-capturing body {
+html.resume-capturing body,
+html.resume-capturing.page-separator-mode,
+html.resume-capturing.page-separator-mode body,
+html.resume-capturing body.page-separator-mode {
   background: #ffffff !important;
 }
 
